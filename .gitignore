@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+.vite.log
+.vite.err
+screenshots/
+test-results/
+playwright-report/
+.superpowers/

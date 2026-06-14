@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#11101b" />
+    <meta name="description" content="A dreamlike exploration game about the interior life of an answering machine." />
+    <title>The Answering Place</title>
+  </head>
+  <body>
+    <main id="shell">
+      <div id="game" aria-label="The Answering Place game canvas"></div>
+      <section id="title-screen" class="screen visible">
+        <div class="title-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p class="eyebrow">A game about the interval before a reply</p>
+        <h1>THE<br />ANSWERING<br />PLACE</h1>
+        <p class="title-note">Some rooms are built to be left.</p>
+        <div class="title-actions">
+          <button id="begin-button" class="primary">Begin</button>
+          <button id="continue-button">Continue</button>
+        </div>
+        <p class="controls-line">Move: WASD / arrows · Interact: E / Space · Echo: Q · Hold: Shift</p>
+      </section>
+
+      <header id="hud" class="hidden">
+        <div class="room-label"><span id="room-name"></span><small id="room-subtitle"></small></div>
+        <div id="abilities" class="abilities"></div>
+        <button id="journal-button" class="icon-button" aria-label="Open journal">+</button>
+      </header>
+      <div id="prompt" class="prompt hidden"></div>
+      <div id="announcement" class="announcement hidden" aria-live="polite"></div>
+
+      <section id="dialog" class="dialog hidden" role="dialog" aria-modal="true">
+        <p id="dialog-title" class="eyebrow"></p>
+        <p id="dialog-text"></p>
+        <div id="dialog-choices" class="choices hidden">
+          <button data-choice="helped">Help</button>
+          <button data-choice="listened">Listen</button>
+          <button data-choice="refused">Refuse</button>
+        </div>
+        <button id="dialog-close" class="primary">Continue</button>
+      </section>
+
+      <aside id="journal" class="journal hidden">
+        <button id="journal-close" class="icon-button" aria-label="Close journal">×</button>
+        <p class="eyebrow">What has changed</p>
+        <h2>JOURNAL</h2>
+        <div id="journal-body"></div>
+        <button id="restart-button" class="danger">Begin again</button>
+      </aside>
+
+      <section id="ending" class="ending hidden">
+        <p class="eyebrow">The route resolves</p>
+        <h2 id="ending-title"></h2>
+        <div id="ending-copy"></div>
+        <p id="ending-final" class="ending-final"></p>
+        <button id="ending-restart" class="primary">Return to the warm room</button>
+      </section>
+
+      <div id="touch-controls" class="touch-controls" aria-hidden="true">
+        <div class="dpad">
+          <button data-touch="up">↑</button><button data-touch="left">←</button>
+          <button data-touch="down">↓</button><button data-touch="right">→</button>
+        </div>
+        <div class="touch-actions">
+          <button data-touch="echo">Q</button><button data-touch="interact">E</button>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

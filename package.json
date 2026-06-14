@@ -1,0 +1,35 @@
+{
+  "name": "the-answering-place",
+  "version": "1.0.0",
+  "description": "A dreamlike exploration game about the interior life of an answering machine.",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:dry": "npm run build && wrangler deploy --dry-run"
+  },
+  "keywords": [
+    "game",
+    "phaser",
+    "dream",
+    "cloudflare-workers"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "phaser": "^4.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260613.1",
+    "@playwright/test": "^1.60.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8",
+    "wrangler": "^4.100.0"
+  }
+}
