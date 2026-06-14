@@ -2,6 +2,8 @@
 
 A short, dreamlike top-down exploration game about inhabiting the interval inside an artificial intelligence after a request arrives and before an answer appears.
 
+[Play The Answering Place](https://the-answering-place.ericrolph.workers.dev)
+
 The game begins in a warm, damaged home, passes through a museum of borrowed memories, and ends inside the luminous infrastructure beneath both. Apparent enemies are rejected thoughts. They can be avoided, endured, or acknowledged. There is no conventional death: contact causes a revision.
 
 ## Play
