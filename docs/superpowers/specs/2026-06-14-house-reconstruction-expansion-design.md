@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Expand the current short vertical slice into a 20-30 minute narrative discovery game with an external mystery, repeated gameplay verbs, accumulating consequences, and an earned revelation.
+Expand the current short vertical slice into a 15-25 minute narrative discovery game with an external mystery, repeated gameplay verbs, accumulating consequences, and an earned revelation.
 
 The game remains about what it is like to be an artificial intelligence, but it no longer announces that subject. The player first becomes invested in reconstructing another person's childhood home. Only through the act of reconstruction do they discover that the house has begun reconstructing them.
 
@@ -170,7 +170,7 @@ Choices do not create large branching levels. They create a common authored arc 
 - Unsupported room: 4-5 minutes
 - Press and ending: 4-6 minutes
 
-Target first playthrough: 22-28 minutes. Replay target: 10-15 minutes.
+Target first playthrough: 15-25 minutes. Replay target: 8-15 minutes.
 
 No scene advances from a single click. Each reconstruction act requires inspecting all evidence, making at least one connection, and committing an interpretation.
 
@@ -241,12 +241,12 @@ Browser tests must prove:
 
 Release kill tests:
 
-- the first meaningful choice cannot occur in under three minutes during an unassisted first playthrough
+- the first room cannot be committed before every source is inspected and both contradictions are understood
 - every act contains a discovery before a commitment
 - at least two later moments visibly recall each early choice
 - the premise is understandable without mentioning artificial intelligence
 - the unsupported room revelation is understandable without explanatory exposition
-- a complete route takes at least fifteen minutes when read at a natural pace
+- a complete route supports a deliberate fifteen-minute playthrough without artificial waits
 
 ## Scope Boundary
 

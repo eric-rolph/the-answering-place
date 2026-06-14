@@ -22,7 +22,7 @@ button { font: inherit; }
   text-align: center; background:
     radial-gradient(circle at 50% 38%, rgba(155,114,58,.18), transparent 34%),
     linear-gradient(rgba(7,9,14,.72), rgba(7,9,14,.95)),
-    url("/assets/borrowed-dollhouse/press.png") center/cover;
+    url("/assets/reconstruction/completed.png") center/cover;
 }
 .title-screen::after, .vignette { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle, transparent 35%, rgba(0,0,0,.78) 100%); }
 .title-screen > * { position:relative; z-index:2; }
@@ -30,6 +30,7 @@ button { font: inherit; }
 h1 { margin:12px 0 18px; font:400 clamp(54px,9vw,126px)/.72 "Libre Caslon Display",serif; letter-spacing:-.065em; text-shadow:0 4px 35px #000; }
 .title-screen blockquote { max-width:660px; margin:12px 0 28px; font:400 clamp(18px,2vw,28px)/1.4 "Libre Caslon Display",serif; color:#cbbfae; }
 .fine-print { margin-top:22px; color:#776f64; font-size:9px; }
+.title-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
 .title-house { display:flex; gap:10px }.title-house span { width:8px;height:8px;background:var(--brass);transform:rotate(45deg);box-shadow:0 0 20px var(--brass) }.title-house span:nth-child(2){opacity:.55}.title-house span:nth-child(3){opacity:.2}
 
 .brass-button, .remember-button, .send-button {
@@ -86,6 +87,76 @@ h1 { margin:12px 0 18px; font:400 clamp(54px,9vw,126px)/.72 "Libre Caslon Displa
 .send-button { display:block; margin:0 auto; width:130px; height:64px; color:#fff0df; background:linear-gradient(#a64433,#69271e); border-color:#d5866f; font-size:12px; }
 .ending-card { text-align:center }.ending-card .epilogue { color:#938876; font-size:14px }
 
+.progress-rail { position:absolute; z-index:6; left:20px; top:20px; display:flex; flex-direction:column; gap:8px; padding:10px 8px; background:rgba(8,8,10,.68); border:1px solid rgba(198,155,82,.25); }
+.progress-rail i { width:6px; height:6px; border:1px solid #75664f; transform:rotate(45deg); }
+.progress-rail i.complete { background:#765d38; border-color:#a78651; }
+.progress-rail i.current { background:var(--brass); border-color:#f0d093; box-shadow:0 0 14px var(--brass); }
+
+.act-plaque { position:absolute; z-index:4; left:32px; top:82px; width:min(360px,29vw); padding:16px 18px; background:rgba(12,10,10,.78); border-left:2px solid var(--brass); backdrop-filter:blur(12px); box-shadow:0 18px 50px rgba(0,0,0,.35); }
+.act-plaque h2 { margin:7px 0 8px; font:400 clamp(24px,2.6vw,38px)/1 "Libre Caslon Display",serif; }
+.act-plaque p:last-child { margin:0; color:#b9aa94; font:400 14px/1.45 "Libre Caslon Display",serif; }
+
+.evidence-tray { position:absolute; z-index:4; left:32px; right:32px; bottom:105px; padding:10px; background:rgba(12,10,10,.82); border:1px solid rgba(198,155,82,.35); backdrop-filter:blur(14px); box-shadow:0 22px 65px rgba(0,0,0,.48); transition:.4s ease; }
+.evidence-tray.resolved { opacity:.22; transform:translateY(72%); pointer-events:none; }
+.evidence-tray header { display:flex; justify-content:space-between; margin:0 3px 9px; color:var(--brass); font-size:8px; letter-spacing:.2em; }
+.evidence-tray header b { color:#8f8372; font-weight:400; }
+.evidence-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.evidence-card { position:relative; min-height:83px; padding:11px 12px 12px; overflow:hidden; text-align:left; color:#817564; background:linear-gradient(150deg,rgba(42,35,29,.96),rgba(19,17,16,.96)); border:1px solid rgba(239,230,212,.13); cursor:pointer; transition:.22s ease; }
+.evidence-card::after { content:""; position:absolute; left:0; right:0; top:0; height:2px; background:transparent; }
+.evidence-card:hover { transform:translateY(-3px); border-color:rgba(198,155,82,.65); }
+.evidence-card.inspected { color:#d9cbb7; border-color:rgba(198,155,82,.35); }
+.evidence-card.inspected::after { background:#765d38; }
+.evidence-card.threaded { transform:translateY(-6px); color:var(--cream); border-color:var(--brass); box-shadow:0 0 0 1px rgba(198,155,82,.32),0 14px 28px rgba(0,0,0,.45); }
+.evidence-card.threaded::after { background:var(--brass); box-shadow:0 0 16px var(--brass); }
+.evidence-card span,.evidence-card i { display:block; font-style:normal; font-size:7px; letter-spacing:.15em; }
+.evidence-card span { color:#907a58; margin-bottom:8px; }
+.evidence-card strong { display:block; font:400 16px/1.15 "Libre Caslon Display",serif; }
+.evidence-card i { position:absolute; right:9px; bottom:7px; color:#5d554b; }
+.evidence-card.inspected i { color:#9a8056; }
+
+.evidence-focus { position:absolute; z-index:5; right:32px; top:82px; width:min(360px,31vw); min-height:145px; padding:18px; background:rgba(19,15,12,.9); border:1px solid rgba(198,155,82,.4); box-shadow:0 24px 70px rgba(0,0,0,.5); backdrop-filter:blur(14px); }
+.evidence-focus:not(.open) { opacity:0; pointer-events:none; transform:translateY(-8px); }
+.evidence-focus h3 { margin:8px 0; font:400 25px/1.1 "Libre Caslon Display",serif; }
+.evidence-focus p { margin:7px 0; color:#d2c4b0; font:400 15px/1.48 "Libre Caslon Display",serif; }
+.evidence-focus small { display:block; margin-top:13px; padding-top:10px; color:#887a68; border-top:1px solid rgba(198,155,82,.22); font-size:8px; letter-spacing:.1em; }
+
+.connection-bench { position:absolute; z-index:4; left:50%; top:48%; transform:translate(-50%,-50%); width:min(650px,48vw); padding:18px; text-align:center; background:rgba(12,10,10,.88); border:1px solid rgba(198,155,82,.38); box-shadow:0 28px 85px rgba(0,0,0,.56); backdrop-filter:blur(14px); }
+.connection-bench:not(.resolved) { top:auto; bottom:230px; transform:translateX(-50%); }
+.thread-slots { display:grid; grid-template-columns:1fr 42px 1fr; align-items:center; gap:7px; margin:15px 0 8px; }
+.thread-slots span { min-height:42px; display:grid; place-content:center; padding:8px; color:#a89a86; border:1px dashed rgba(198,155,82,.45); font:400 13px/1.2 "Libre Caslon Display",serif; }
+.thread-slots i { height:1px; background:var(--brass); box-shadow:0 0 10px var(--brass); }
+.connection-message { min-height:30px; margin:8px 0 13px; color:#948673; font:400 13px/1.4 "Libre Caslon Display",serif; }
+.connection-bench.resolved { width:min(760px,58vw); border-color:rgba(198,155,82,.72); }
+.connection-bench.locked { width:min(500px,40vw); opacity:.82; }
+.connection-bench blockquote { margin:12px auto 18px; max-width:650px; color:#eee1ce; font:400 clamp(20px,2vw,27px)/1.42 "Libre Caslon Display",serif; }
+.resonance-stack { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+.resonance-stack blockquote { margin:0; padding:14px; text-align:left; border:1px solid rgba(198,155,82,.26); font-size:18px; }
+.discovered-resonances { margin:12px 0; padding:9px 12px; text-align:left; border-left:1px solid var(--brass); background:rgba(198,155,82,.07); }
+.discovered-resonances p { margin:4px 0; color:#cdbda7; font:400 13px/1.4 "Libre Caslon Display",serif; }
+.choice-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.choice-grid:has(.interpretation:only-child) { grid-template-columns:1fr; max-width:380px; margin:auto; }
+.interpretation { padding:15px; text-align:left; color:#cbbda8; background:linear-gradient(150deg,rgba(198,155,82,.12),rgba(0,0,0,.18)); border:1px solid rgba(198,155,82,.38); cursor:pointer; transition:.22s ease; }
+.interpretation:hover { transform:translateY(-3px); border-color:var(--brass); background:rgba(198,155,82,.2); }
+.interpretation span { display:block; margin-bottom:9px; color:var(--brass); font-size:8px; letter-spacing:.15em; }
+.interpretation strong { font:400 15px/1.35 "Libre Caslon Display",serif; }
+
+.commit-card { position:absolute; z-index:5; left:50%; top:50%; transform:translate(-50%,-50%); width:min(650px,calc(100vw - 38px)); padding:30px; background:rgba(15,12,11,.9); border:1px solid rgba(198,155,82,.5); box-shadow:0 28px 90px rgba(0,0,0,.66); backdrop-filter:blur(15px); }
+.commit-card h2 { margin:9px 0; font:400 clamp(34px,4vw,54px)/1 "Libre Caslon Display",serif; }
+.commit-card p { color:#c9baa6; font:400 17px/1.5 "Libre Caslon Display",serif; }
+.commit-card blockquote { margin:20px 0; padding:12px 15px; color:#d8c7ad; border-left:1px solid var(--brass); font:400 18px/1.45 "Libre Caslon Display",serif; }
+
+.context-workbench.expanded { width:min(1120px,calc(100vw - 54px)); max-height:76vh; overflow:auto; }
+.truth-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:22px 0; perspective:900px; }
+.truth-grid .fragment-card { min-height:170px; padding:20px 14px; }
+.truth-grid .fragment-card strong { font-size:18px; }
+.answer-slots.three { grid-template-columns:repeat(3,1fr); }
+.double-loss { width:min(860px,calc(100vw - 38px)); }
+.double-loss > div { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:18px 0 24px; }
+.double-loss article { padding:16px; border:1px solid rgba(165,59,44,.5); background:rgba(75,24,20,.18); }
+.double-loss article h2 { font-size:24px; }
+.expanded-ending { width:min(820px,calc(100vw - 38px)); max-height:78vh; overflow:auto; }
+.expanded-ending .requester-response { margin:22px 0; color:#d9b49d; font-size:20px; }
+
 .paper-storm { position:absolute; z-index:8; inset:0; pointer-events:none; overflow:hidden }
 .paper-storm i { position:absolute; left:50%; top:50%; width:20px; height:13px; background:#c7b695; opacity:0; transform:translate(-50%,-50%) rotate(0deg); }
 .paper-storm.active i { animation:paper 1.6s ease-out both; animation-delay:calc(var(--i) * 15ms); }
@@ -99,6 +170,33 @@ h1 { margin:12px 0 18px; font:400 clamp(54px,9vw,126px)/.72 "Libre Caslon Displa
   .context-workbench { top:52%; max-height:70vh; overflow:auto; padding:17px }
   .fragment-grid { grid-template-columns:1fr; gap:9px; margin:16px 0 }.fragment-card { min-height:84px; padding:14px 16px }.fragment-card span { margin-bottom:7px }.fragment-card strong { font-size:18px }
   .request-ribbon { top:7px }.narrator { bottom:7px }
+  .progress-rail { display:none; }
+  .act-plaque { left:14px; right:14px; top:78px; width:auto; padding:12px 14px; }
+  .act-plaque h2 { font-size:25px; }
+  .act-plaque p:last-child { font-size:13px; }
+  .evidence-focus { left:14px; right:14px; top:205px; width:auto; min-height:0; padding:12px 14px; }
+  .evidence-focus h3 { font-size:20px; }
+  .evidence-focus p { font-size:13px; }
+  .connection-bench,.connection-bench.resolved { left:14px; right:14px; top:auto; bottom:250px; transform:none; width:auto; max-height:33vh; overflow:auto; padding:13px; }
+  .connection-bench:not(.resolved) { bottom:250px; transform:none; }
+  .connection-bench.locked { width:auto; opacity:.9; }
+  .connection-bench blockquote { font-size:18px; }
+  .resonance-stack { grid-template-columns:1fr; }
+  .evidence-tray { left:7px; right:7px; bottom:98px; padding:7px; }
+  .evidence-grid { grid-template-columns:repeat(2,1fr); gap:5px; }
+  .evidence-card { min-height:62px; padding:8px; }
+  .evidence-card strong { font-size:13px; }
+  .evidence-card span { margin-bottom:5px; }
+  .choice-grid { grid-template-columns:1fr; }
+  .thread-slots { grid-template-columns:1fr 22px 1fr; }
+  .thread-slots span { font-size:11px; }
+  .context-workbench.expanded { top:50%; max-height:77vh; width:calc(100vw - 22px); padding:14px; }
+  .truth-grid { grid-template-columns:1fr; gap:7px; margin:14px 0; }
+  .truth-grid .fragment-card { min-height:76px; padding:12px 14px; }
+  .truth-grid .fragment-card span { margin-bottom:6px; }
+  .truth-grid .fragment-card strong { font-size:16px; }
+  .answer-slots.three { grid-template-columns:1fr; gap:6px; }
+  .double-loss > div { grid-template-columns:1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.001ms!important; transition-duration:.001ms!important; } }

@@ -1,7 +1,7 @@
 {
   "name": "the-answering-place",
   "version": "1.0.0",
-  "description": "A tactile narrative game about a temporary self inventing a childhood.",
+  "description": "A handcrafted narrative mystery about rebuilding a childhood home from contradictory evidence.",
   "private": true,
   "scripts": {
     "dev": "vite",

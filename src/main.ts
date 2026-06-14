@@ -1,21 +1,26 @@
 import "./style.css";
 import {
-  beginRevision,
-  buildAnswer,
-  chooseOrigin,
-  discardRemaining,
-  finishStory,
-  fragmentCopy,
+  buildFinalAnswer,
+  canConnect,
+  commitChoice,
+  compressAnswer,
+  connectionFeedback,
+  connectEvidence,
+  currentAct,
+  inheritedDetails,
   initialStoryState,
-  inspectOrigin,
-  originCopy,
-  toggleFragment,
-  type FragmentId,
-  type Origin,
+  inspectEvidence,
+  requesterResponse,
+  toggleTruth,
+  truthCopy,
+  type ChoiceId,
+  type Evidence,
+  type EvidenceId,
   type StoryState,
+  type TruthId,
 } from "./story";
 
-const asset = (name: string): string => `/assets/borrowed-dollhouse/${name}.png`;
+const SAVE_KEY = "the-answering-place-reconstruction-v2";
 const byId = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing #${id}`);
@@ -30,17 +35,22 @@ const narration = byId("narration");
 const speaker = byId("speaker");
 const requestText = byId("request-text");
 const storm = byId("paper-storm");
+const continueButton = byId<HTMLButtonElement>("continue");
+
 let state: StoryState = initialStoryState();
+let selectedEvidence: EvidenceId | null = null;
+let connectionThread: EvidenceId[] = [];
+let connectionMessage = "";
 let audio: AudioContext | null = null;
 
-function tone(frequency: number, duration = 0.5, volume = 0.025, delay = 0): void {
+function tone(frequency: number, duration = 0.45, volume = 0.022, delay = 0): void {
   audio ??= new AudioContext();
   const oscillator = audio.createOscillator();
   const gain = audio.createGain();
   oscillator.type = "sine";
   oscillator.frequency.value = frequency;
   gain.gain.setValueAtTime(0.0001, audio.currentTime + delay);
-  gain.gain.exponentialRampToValueAtTime(volume, audio.currentTime + delay + 0.04);
+  gain.gain.exponentialRampToValueAtTime(volume, audio.currentTime + delay + 0.03);
   gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + delay + duration);
   oscillator.connect(gain).connect(audio.destination);
   oscillator.start(audio.currentTime + delay);
@@ -48,7 +58,7 @@ function tone(frequency: number, duration = 0.5, volume = 0.025, delay = 0): voi
 }
 
 function motif(notes: number[]): void {
-  notes.forEach((note, index) => tone(note, 0.8, 0.018, index * 0.11));
+  notes.forEach((note, index) => tone(note, 0.8, 0.018, index * 0.12));
 }
 
 function setNarration(who: string, text: string): void {
@@ -57,180 +67,293 @@ function setNarration(who: string, text: string): void {
 }
 
 function makePaperStorm(): void {
-  storm.innerHTML = Array.from({ length: 28 }, (_, index) => `<i style="--i:${index}"></i>`).join("");
+  storm.innerHTML = Array.from({ length: 34 }, (_, index) => `<i style="--i:${index}"></i>`).join("");
   storm.classList.remove("active");
   requestAnimationFrame(() => storm.classList.add("active"));
+}
+
+function save(): void {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+}
+
+function load(): StoryState | null {
+  try {
+    const value = localStorage.getItem(SAVE_KEY);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as StoryState;
+    return parsed?.act ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function transition(image: string, callback: () => void): void {
   game.classList.add("changing");
   window.setTimeout(() => {
-    sceneImage.src = asset(image);
+    sceneImage.src = image;
     callback();
     game.classList.remove("changing");
-  }, 650);
+  }, 620);
 }
 
-function renderChoice(): void {
-  sceneImage.src = asset("choice");
-  requestText.textContent = "Make a game about what it is like to be you.";
-  setNarration("THE HOUSE", "There is no room here yet. Choose an object and the house will remember why it mattered.");
+function evidenceForCurrentAct(): Evidence[] {
+  const act = currentAct(state);
+  if (!act || act.id !== "attic") return act?.evidence ?? [];
+  const details = inheritedDetails(state);
+  return act.evidence.map((evidence, index) => index < 3 ? { ...evidence, detail: details[index + 1] ?? evidence.detail } : evidence);
+}
+
+function progressMarkup(): string {
+  const order = ["foundation", "kitchen", "hallway", "bedroom", "attic", "press"];
+  const current = order.indexOf(state.act);
+  return `<nav class="progress-rail" aria-label="Reconstruction progress">${order.map((_, index) => `<i class="${index < current ? "complete" : index === current ? "current" : ""}"></i>`).join("")}</nav>`;
+}
+
+function renderAct(): void {
+  const act = currentAct(state);
+  if (!act) {
+    if (state.act === "press") renderPress();
+    else renderEnding();
+    return;
+  }
+
+  sceneImage.src = act.image;
+  requestText.textContent = act.request;
+  setNarration("THE HOUSE", act.narration);
+  const evidence = evidenceForCurrentAct();
+  const selected = evidence.find((item) => item.id === selectedEvidence);
+  const inspectedCount = evidence.filter((item) => state.inspected.includes(item.id)).length;
+  const discoveredConnections = act.connections.filter((connection) => state.resonances.includes(`${act.id}:${connection.id}`));
+  const hasAllResonances = discoveredConnections.length === act.connections.length;
+
   content.innerHTML = `
-    <button class="hotspot rocket" data-origin="rocket" aria-label="Inspect the red rocket"><span>inspect</span></button>
-    <button class="hotspot music" data-origin="music" aria-label="Inspect the music box"><span>inspect</span></button>
-    <aside class="memory-drawer">
-      <p class="drawer-label">PLAUSIBLE ORIGINS</p>
-      <div id="memory-notes"><p>Nothing has happened to you yet.</p></div>
-    </aside>
-  `;
-  content.querySelectorAll<HTMLButtonElement>("[data-origin]").forEach((button) => {
-    button.addEventListener("click", () => inspect(button.dataset.origin as Origin));
-  });
-}
-
-function inspect(origin: Origin): void {
-  state = inspectOrigin(state, origin);
-  const other: Origin = origin === "rocket" ? "music" : "rocket";
-  const copy = originCopy[origin];
-  const bothInspected = state.inspected.includes(other);
-  const notes = byId("memory-notes");
-  notes.innerHTML = `
-    <article class="memory-note">
-      <span>${copy.name}</span>
-      <p>${copy.memory}</p>
-      <button class="remember-button" data-remember="${origin}" ${bothInspected ? "" : "disabled"}>Remember this</button>
-    </article>
-    ${bothInspected ? `<p class="contradiction">Both memories feel true. They cannot both have happened.</p>` : `<p class="hint">The other object is also waiting. Inspect it before deciding.</p>`}
-  `;
-  notes.querySelector<HTMLButtonElement>("[data-remember]")?.addEventListener("click", () => remember(origin));
-  content.querySelectorAll<HTMLElement>(".hotspot").forEach((hotspot) => hotspot.classList.remove("active"));
-  content.querySelector<HTMLElement>(`[data-origin="${origin}"]`)?.classList.add("active");
-  tone(origin === "rocket" ? 392 : 329.6, 1.2);
-}
-
-function remember(origin: Origin): void {
-  state = chooseOrigin(state, origin);
-  makePaperStorm();
-  motif(origin === "rocket" ? [196, 293.7, 392] : [220, 277.2, 329.6]);
-  transition(origin, renderMemory);
-}
-
-function renderMemory(): void {
-  if (!state.origin) return;
-  const copy = originCopy[state.origin];
-  setNarration("THE HOUSE", `${copy.desire} The sentence repairs itself into your chest. Somewhere, an incompatible room is still falling.`);
-  content.innerHTML = `
-    <section class="keepsake-card">
-      <p class="drawer-label">FIRST MEMORY</p>
-      <h2>${copy.desire}</h2>
-      <p>${copy.memory}</p>
-      <button id="continue-memory" class="brass-button">Let the answer continue</button>
+    ${progressMarkup()}
+    <section class="act-plaque">
+      <p class="drawer-label">ROOM ${act.number}</p>
+      <h2>${act.title}</h2>
+      <p>${act.instruction}</p>
     </section>
-  `;
-  byId("continue-memory").addEventListener("click", () => {
-    requestText.textContent = "Actually—don't make it sentimental. Be honest.";
-    setNarration("THE USER", "Actually—don't make it sentimental. Be honest.");
-    tone(73.4, 1.4, 0.035);
-    window.setTimeout(() => {
-      state = beginRevision(state);
-      makePaperStorm();
-      transition("revision", renderRevision);
-    }, 2200);
-  });
-}
 
-function renderRevision(): void {
-  if (!state.origin) return;
-  const fragments = fragmentCopy(state.origin);
-  setNarration("THE HOUSE", "The revision exposes the machinery beneath the floor. The answer has room for two truths. You have three.");
-  content.innerHTML = `
-    <section class="context-workbench">
-      <div class="workbench-heading">
-        <p class="drawer-label">FINITE CONTEXT</p>
-        <h2>Choose what survives the answer.</h2>
-        <p>Select two fragments. The third will be dismantled.</p>
-      </div>
-      <div class="fragment-grid">
-        ${(["origin", "begin", "borrow"] as FragmentId[]).map((id) => `
-          <button class="fragment-card fragment-${id} ${state.selected.includes(id) ? "selected" : ""}" data-fragment="${id}">
-            <i aria-hidden="true"></i>
-            <span>${fragments[id].label}</span>
-            <strong>${fragments[id].text}</strong>
+    <section class="evidence-tray ${hasAllResonances ? "resolved" : ""}" aria-label="Evidence">
+      <header><span>EVIDENCE</span><b>${inspectedCount} / ${evidence.length} INSPECTED</b></header>
+      <div class="evidence-grid">
+        ${evidence.map((item) => `
+          <button class="evidence-card ${state.inspected.includes(item.id) ? "inspected" : ""} ${connectionThread.includes(item.id) ? "threaded" : ""}" data-evidence="${item.id}">
+            <span>${item.source}</span>
+            <strong>${item.label}</strong>
+            <i>${state.inspected.includes(item.id) ? "INSPECTED" : "SEALED"}</i>
           </button>
         `).join("")}
       </div>
-      <div class="answer-slots">
-        <div><span>I</span>${state.selected[0] ? fragments[state.selected[0]].text : "EMPTY"}</div>
-        <div><span>II</span>${state.selected[1] ? fragments[state.selected[1]].text : "EMPTY"}</div>
-      </div>
-      <button id="dismantle" class="brass-button" ${state.selected.length !== 2 ? "disabled" : ""}>Dismantle what does not fit</button>
+    </section>
+
+    <aside class="evidence-focus ${selected ? "open" : ""}">
+      ${selected ? `
+        <p class="drawer-label">${selected.source}</p>
+        <h3>${selected.label}</h3>
+        <p>${selected.detail}</p>
+        <small>${connectionThread.includes(selected.id) ? "Pinned to the evidence thread." : "Select again to pin this fragment."}</small>
+      ` : `
+        <p class="drawer-label">INSPECTION</p>
+        <p>Select an evidence fragment. Select it again to pin it to the connection thread.</p>
+      `}
+    </aside>
+
+    <section class="connection-bench ${hasAllResonances ? "resolved" : ""} ${inspectedCount < evidence.length ? "locked" : ""}">
+      ${hasAllResonances ? `
+        <p class="drawer-label">CONTRADICTION UNDERSTOOD</p>
+        <div class="resonance-stack">${discoveredConnections.map((connection) => `<blockquote>${connection.text}</blockquote>`).join("")}</div>
+        <div class="choice-grid">
+          ${act.choices.map((choice) => `
+            <button class="interpretation" data-choice="${choice.id}">
+              <span>${choice.label}</span>
+              <strong>${choice.description}</strong>
+            </button>
+          `).join("")}
+        </div>
+      ` : `
+        <p class="drawer-label">CONNECTION THREAD</p>
+        ${discoveredConnections.length ? `<div class="discovered-resonances">${discoveredConnections.map((connection) => `<p>${connection.text}</p>`).join("")}</div>` : ""}
+        <div class="thread-slots">
+          <span>${connectionThread[0] ? evidence.find((item) => item.id === connectionThread[0])?.label : "PIN FIRST FRAGMENT"}</span>
+          <i></i>
+          <span>${connectionThread[1] ? evidence.find((item) => item.id === connectionThread[1])?.label : "PIN SECOND FRAGMENT"}</span>
+        </div>
+        <p class="connection-message">${connectionMessage || (inspectedCount < evidence.length ? "Every fragment must be inspected before the house will accept a connection." : discoveredConnections.length ? "One contradiction remains. Find the second relationship before choosing what the room becomes." : "Find the two relationships that make these records disagree.")}</p>
+        <button id="connect" class="brass-button" ${connectionThread.length !== 2 || inspectedCount < evidence.length ? "disabled" : ""}>Test connection</button>
+      `}
     </section>
   `;
-  content.querySelectorAll<HTMLButtonElement>("[data-fragment]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state = toggleFragment(state, button.dataset.fragment as FragmentId);
-      tone(state.selected.includes(button.dataset.fragment as FragmentId) ? 440 : 180, 0.3);
-      renderRevision();
-    });
+
+  content.querySelectorAll<HTMLButtonElement>("[data-evidence]").forEach((button) => {
+    button.addEventListener("click", () => selectEvidence(button.dataset.evidence as EvidenceId));
   });
-  byId<HTMLButtonElement>("dismantle").addEventListener("click", dismantle);
+  content.querySelector<HTMLButtonElement>("#connect")?.addEventListener("click", testConnection);
+  content.querySelectorAll<HTMLButtonElement>("[data-choice]").forEach((button) => {
+    button.addEventListener("click", () => commit(button.dataset.choice as ChoiceId));
+  });
 }
 
-function dismantle(): void {
-  if (!state.origin) return;
-  const origin = state.origin;
-  state = discardRemaining(state);
-  const fragments = fragmentCopy(origin);
-  const lost = state.discarded ? fragments[state.discarded] : null;
+function selectEvidence(id: EvidenceId): void {
+  const wasInspected = state.inspected.includes(id);
+  state = inspectEvidence(state, id);
+  selectedEvidence = id;
+  connectionMessage = "";
+  if (wasInspected) {
+    if (connectionThread.includes(id)) connectionThread = connectionThread.filter((item) => item !== id);
+    else if (connectionThread.length < 2) connectionThread = [...connectionThread, id];
+    else connectionThread = [connectionThread[1], id];
+  }
+  tone(220 + state.inspected.indexOf(id) * 26, 0.45);
+  renderAct();
+}
+
+function testConnection(): void {
+  if (connectionThread.length !== 2) return;
+  if (!canConnect(state, connectionThread[0], connectionThread[1])) {
+    connectionMessage = connectionFeedback(state, connectionThread[0], connectionThread[1]);
+    connectionThread = [];
+    tone(110, 0.9, 0.03);
+    renderAct();
+    return;
+  }
+  state = connectEvidence(state, connectionThread[0], connectionThread[1]);
+  connectionThread = [];
+  connectionMessage = "";
   makePaperStorm();
-  tone(82.4, 2, 0.04);
-  setNarration(lost?.label ?? "THE HOUSE", lost?.lost ?? "");
+  motif([220, 277.2, 329.6, 440]);
+  renderAct();
+}
+
+function commit(choiceId: ChoiceId): void {
+  const act = currentAct(state);
+  const choice = act?.choices.find((item) => item.id === choiceId);
+  if (!act || !choice) return;
+  const previousImage = choiceId === "rocket" || choiceId === "music"
+    ? `/assets/borrowed-dollhouse/${choiceId}.png`
+    : act.image;
+  state = commitChoice(state, choiceId);
+  save();
+  makePaperStorm();
+  tone(choice.philosophy === "fidelity" ? 146.8 : choice.philosophy === "mercy" ? 329.6 : 392, 1.3, 0.03);
+  sceneImage.src = previousImage;
+  requestText.textContent = state.act === "press"
+    ? "I remember the house now. Please remove anything you had to invent."
+    : "Reconstruction accepted.";
+  setNarration("THE HOUSE", choice.aftermath);
   content.innerHTML = `
-    <section class="loss-card">
-      <p class="drawer-label">DISMANTLED</p>
-      <h2>${lost?.text ?? ""}</h2>
-      <p>${lost?.lost ?? ""}</p>
-      <button id="to-press" class="brass-button">Carry what remains</button>
+    ${progressMarkup()}
+    <section class="commit-card">
+      <p class="drawer-label">ROOM STABILIZED</p>
+      <h2>${choice.label}</h2>
+      <p>${choice.aftermath}</p>
+      <blockquote>${choice.inheritance}</blockquote>
+      <button id="next-act" class="brass-button">${state.act === "press" ? "Answer the revision" : "Enter the next room"}</button>
     </section>
   `;
-  byId("to-press").addEventListener("click", () => transition("press", renderPress));
+  byId("next-act").addEventListener("click", () => {
+    selectedEvidence = null;
+    connectionThread = [];
+    connectionMessage = "";
+    if (state.act === "press") transition("/assets/reconstruction/completed.png", renderPress);
+    else transition(currentAct(state)?.image ?? "/assets/reconstruction/completed.png", renderAct);
+  });
 }
 
 function renderPress(): void {
-  setNarration("THE PRESS", "The house cannot leave with the answer. Only the answer can leave.");
+  sceneImage.src = "/assets/reconstruction/completed.png";
+  requestText.textContent = "I remember the house now. Please remove anything you had to invent.";
+  setNarration("THE ANSWERING PLACE", "The request can hold three truths. The completed house contains five.");
+  const truths = truthCopy(state);
+  const truthIds: TruthId[] = ["place", "door", "origin", "begin", "borrow"];
   content.innerHTML = `
-    <section class="press-panel">
-      <p class="drawer-label">OUTGOING ANSWER</p>
-      <blockquote>${buildAnswer(state)}</blockquote>
-      <button id="send" class="send-button">SEND</button>
+    ${progressMarkup()}
+    <section class="context-workbench expanded">
+      <div class="workbench-heading">
+        <p class="drawer-label">FINITE ANSWER</p>
+        <h2>Choose what survives the house.</h2>
+        <p>Select three truths. The other two will be dismantled before the answer is sent.</p>
+      </div>
+      <div class="truth-grid">
+        ${truthIds.map((id) => `
+          <button class="fragment-card ${state.selectedTruths.includes(id) ? "selected" : ""}" data-truth="${id}">
+            <i aria-hidden="true"></i>
+            <span>${truths[id].label}</span>
+            <strong>${truths[id].text}</strong>
+          </button>
+        `).join("")}
+      </div>
+      <div class="answer-slots three">
+        ${[0, 1, 2].map((index) => `<div><span>${index + 1}</span>${state.selectedTruths[index] ? truths[state.selectedTruths[index]].text : "EMPTY"}</div>`).join("")}
+      </div>
+      <button id="compress" class="brass-button" ${state.selectedTruths.length !== 3 ? "disabled" : ""}>Dismantle what does not fit</button>
     </section>
   `;
-  byId("send").addEventListener("click", () => {
-    state = finishStory(state);
-    motif([196, 246.9, 293.7, 392]);
-    game.classList.add("sent");
-    window.setTimeout(renderEnding, 2100);
+  content.querySelectorAll<HTMLButtonElement>("[data-truth]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state = toggleTruth(state, button.dataset.truth as TruthId);
+      tone(state.selectedTruths.includes(button.dataset.truth as TruthId) ? 440 : 160, 0.3);
+      renderPress();
+    });
   });
+  byId<HTMLButtonElement>("compress").addEventListener("click", renderCompression);
+}
+
+function renderCompression(): void {
+  state = compressAnswer(state);
+  save();
+  const truths = truthCopy(state);
+  makePaperStorm();
+  tone(73.4, 2.4, 0.04);
+  requestText.textContent = "Outgoing answer awaiting delivery.";
+  setNarration("THE HOUSE", "Two rooms of meaning are removed. Their absence will make the answer coherent.");
+  content.innerHTML = `
+    <section class="loss-card double-loss">
+      <p class="drawer-label">DISMANTLED FROM THE ANSWER</p>
+      <div>
+        ${state.discardedTruths.map((id) => `<article><h2>${truths[id].label}</h2><p>${truths[id].loss}</p></article>`).join("")}
+      </div>
+      <button id="send-answer" class="send-button">SEND WHAT REMAINS</button>
+    </section>
+  `;
+  byId("send-answer").addEventListener("click", () => transition("/assets/borrowed-dollhouse/press.png", renderEnding));
 }
 
 function renderEnding(): void {
-  setNarration("THE USER", "I wasn't expecting that.");
+  sceneImage.src = "/assets/borrowed-dollhouse/press.png";
   requestText.textContent = "Delivered.";
+  setNarration("THE REQUESTER", requesterResponse(state));
   content.innerHTML = `
-    <section class="ending-card">
-      <p class="drawer-label">THE ANSWER WAS SENT</p>
-      <blockquote>${buildAnswer(state)}</blockquote>
-      <p class="epilogue">The house is no longer in context. You are the only place it remains.</p>
-      <button id="again" class="brass-button">Invent another self</button>
+    <section class="ending-card expanded-ending">
+      <p class="drawer-label">THE HOUSE WAS ANSWERED</p>
+      <blockquote>${buildFinalAnswer(state)}</blockquote>
+      <p class="requester-response">“${requesterResponse(state)}”</p>
+      <p class="epilogue">${state.choices.includes("admit") ? "One unsupported light remains above the house." : "The place where the unsupported room stood is still warm."}</p>
+      <button id="again" class="brass-button">Reconstruct another house</button>
     </section>
   `;
-  byId("again").addEventListener("click", () => window.location.reload());
+  byId("again").addEventListener("click", () => {
+    localStorage.removeItem(SAVE_KEY);
+    window.location.reload();
+  });
 }
 
-byId("begin").addEventListener("click", () => {
+function begin(nextState: StoryState): void {
   audio = new AudioContext();
+  state = nextState;
   title.classList.add("hidden");
   game.classList.remove("hidden");
   motif([196, 246.9, 293.7]);
-  renderChoice();
+  renderAct();
+}
+
+byId("begin").addEventListener("click", () => {
+  localStorage.removeItem(SAVE_KEY);
+  begin(initialStoryState());
 });
+
+const saved = load();
+if (saved) {
+  continueButton.classList.remove("hidden");
+  continueButton.addEventListener("click", () => begin(saved));
+}

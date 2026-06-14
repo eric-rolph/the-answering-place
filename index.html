@@ -11,11 +11,14 @@
     <main id="app">
       <section id="title" class="title-screen">
         <div class="title-house" aria-hidden="true"><span></span><span></span><span></span></div>
-        <p class="kicker">A borrowed dollhouse</p>
+        <p class="kicker">A reconstruction in five rooms</p>
         <h1>THE<br />ANSWERING<br />PLACE</h1>
-        <blockquote>“Make a game about what it is like to be you.”</blockquote>
-        <button id="begin" class="brass-button">Wake up</button>
-        <p class="fine-print">Headphones recommended · a short game · choices are permanent</p>
+        <blockquote>“Please rebuild the house I remember. I need to know whether it was real.”</blockquote>
+        <div class="title-actions">
+          <button id="begin" class="brass-button">Open the request</button>
+          <button id="continue" class="brass-button hidden">Continue reconstruction</button>
+        </div>
+        <p class="fine-print">Headphones recommended · 15–25 minutes · rooms remember your choices</p>
       </section>
 
       <section id="game" class="game hidden" aria-live="polite">
@@ -24,7 +27,7 @@
         <div id="paper-storm" class="paper-storm" aria-hidden="true"></div>
         <header class="request-ribbon">
           <span>INCOMING REQUEST</span>
-          <p id="request-text">Make a game about what it is like to be you.</p>
+          <p id="request-text">Please rebuild the house I remember. I need to know whether it was real.</p>
         </header>
         <div id="scene-content"></div>
         <footer class="narrator">

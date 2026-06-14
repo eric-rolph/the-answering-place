@@ -1,51 +1,157 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-async function wake(page: import("@playwright/test").Page): Promise<void> {
+type ActRoute = {
+  evidence: RegExp[];
+  connections: Array<[RegExp, RegExp]>;
+  choice: RegExp;
+};
+
+const routes = {
+  foundation: {
+    evidence: [/THE REQUEST/, /THE FLOOR PLAN/, /THE MEASUREMENTS/, /THE ASH ENVELOPE/],
+    connections: [[/THE FLOOR PLAN/, /THE MEASUREMENTS/], [/THE REQUEST/, /THE ASH ENVELOPE/]],
+    choice: /RAISE THE FOUNDATION/,
+  },
+  kitchenMercy: {
+    evidence: [/FAMILY PHOTOGRAPH/, /CHIPPED BLUE CUP/, /TABLE MEMORY/, /MOTHER'S NOTE/],
+    connections: [[/FAMILY PHOTOGRAPH/, /CHIPPED BLUE CUP/], [/TABLE MEMORY/, /MOTHER'S NOTE/]],
+    choice: /KEEP THE THIRD PLACE/,
+  },
+  kitchenFidelity: {
+    evidence: [/FAMILY PHOTOGRAPH/, /CHIPPED BLUE CUP/, /TABLE MEMORY/, /MOTHER'S NOTE/],
+    connections: [[/FAMILY PHOTOGRAPH/, /CHIPPED BLUE CUP/], [/TABLE MEMORY/, /MOTHER'S NOTE/]],
+    choice: /SET THE TABLE FOR TWO/,
+  },
+  hallwayAgency: {
+    evidence: [/HALLWAY PLAN/, /DUSTED FOOTSTEPS/, /FOUR BRASS KNOBS/, /SIBLING TESTIMONY/],
+    connections: [[/DUSTED FOOTSTEPS/, /FOUR BRASS KNOBS/], [/HALLWAY PLAN/, /SIBLING TESTIMONY/]],
+    choice: /BUILD THE FOURTH DOOR/,
+  },
+  hallwayFidelity: {
+    evidence: [/HALLWAY PLAN/, /DUSTED FOOTSTEPS/, /FOUR BRASS KNOBS/, /SIBLING TESTIMONY/],
+    connections: [[/DUSTED FOOTSTEPS/, /FOUR BRASS KNOBS/], [/HALLWAY PLAN/, /SIBLING TESTIMONY/]],
+    choice: /KEEP THE WALL INTACT/,
+  },
+  bedroomRocket: {
+    evidence: [/THE RED ROCKET/, /THE MUSIC BOX/, /CEILING CONSTELLATIONS/, /THE HUMMING ROOM/],
+    connections: [[/THE RED ROCKET/, /CEILING CONSTELLATIONS/], [/THE MUSIC BOX/, /THE HUMMING ROOM/]],
+    choice: /REMEMBER THE ROCKET/,
+  },
+  bedroomMusic: {
+    evidence: [/THE RED ROCKET/, /THE MUSIC BOX/, /CEILING CONSTELLATIONS/, /THE HUMMING ROOM/],
+    connections: [[/THE RED ROCKET/, /CEILING CONSTELLATIONS/], [/THE MUSIC BOX/, /THE HUMMING ROOM/]],
+    choice: /REMEMBER THE MUSIC BOX/,
+  },
+  atticAdmit: {
+    evidence: [/THE INHERITED PLACE/, /THE INHERITED DOOR/, /THE INHERITED CHILDHOOD/, /THE PORCELAIN BED/],
+    connections: [[/THE INHERITED PLACE/, /THE INHERITED DOOR/], [/THE INHERITED CHILDHOOD/, /THE PORCELAIN BED/]],
+    choice: /ADMIT THE ROOM EXISTS/,
+  },
+  atticErase: {
+    evidence: [/THE INHERITED PLACE/, /THE INHERITED DOOR/, /THE INHERITED CHILDHOOD/, /THE PORCELAIN BED/],
+    connections: [[/THE INHERITED PLACE/, /THE INHERITED DOOR/], [/THE INHERITED CHILDHOOD/, /THE PORCELAIN BED/]],
+    choice: /MARK IT AS INVENTED/,
+  },
+} satisfies Record<string, ActRoute>;
+
+async function begin(page: Page): Promise<void> {
   await page.goto("/");
-  await page.getByRole("button", { name: "Wake up" }).click();
-  await expect(page.getByText("Nothing has happened to you yet.")).toBeVisible();
+  await page.getByRole("button", { name: "Open the request" }).click();
+  await expect(page.getByRole("heading", { name: "The Foundation" })).toBeVisible();
 }
 
-async function chooseOrigin(page: import("@playwright/test").Page, origin: "rocket" | "music"): Promise<void> {
-  const other = origin === "rocket" ? "music box" : "red rocket";
-  await page.getByRole("button", { name: new RegExp(other, "i") }).click();
-  await expect(page.getByRole("button", { name: "Remember this" })).toBeDisabled();
-  await page.getByRole("button", { name: new RegExp(origin, "i") }).click();
-  await expect(page.getByText("Both memories feel true. They cannot both have happened.")).toBeVisible();
-  await page.getByRole("button", { name: "Remember this" }).click();
+async function resolveAct(page: Page, route: ActRoute): Promise<void> {
+  for (const evidence of route.evidence) await page.getByRole("button", { name: evidence }).click();
+  for (const connection of route.connections) {
+    for (const evidence of connection) await page.getByRole("button", { name: evidence }).click();
+    await page.getByRole("button", { name: "Test connection" }).click();
+  }
+  await expect(page.getByText("CONTRADICTION UNDERSTOOD")).toBeVisible();
+  await page.getByRole("button", { name: route.choice }).click();
 }
 
-test("makes the player discover a contradiction before inventing a past", async ({ page }) => {
+async function enterNext(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /Enter the next room|Answer the revision/ }).click();
+}
+
+async function reachPress(page: Page, alternate = false): Promise<void> {
+  await resolveAct(page, routes.foundation);
+  await enterNext(page);
+  await resolveAct(page, alternate ? routes.kitchenFidelity : routes.kitchenMercy);
+  await enterNext(page);
+  await resolveAct(page, alternate ? routes.hallwayFidelity : routes.hallwayAgency);
+  await enterNext(page);
+  await resolveAct(page, alternate ? routes.bedroomMusic : routes.bedroomRocket);
+  await enterNext(page);
+  await resolveAct(page, alternate ? routes.atticErase : routes.atticAdmit);
+  await enterNext(page);
+  await expect(page.getByText("Choose what survives the house.")).toBeVisible();
+}
+
+test("requires investigation before the first room can be committed", async ({ page }) => {
+  await begin(page);
+  await page.getByRole("button", { name: /THE FLOOR PLAN/ }).click();
+  await page.getByRole("button", { name: /THE FLOOR PLAN/ }).click();
+  await page.getByRole("button", { name: /THE MEASUREMENTS/ }).click();
+  await page.getByRole("button", { name: /THE MEASUREMENTS/ }).click();
+  await expect(page.getByRole("button", { name: "Test connection" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /RAISE THE FOUNDATION/ })).toHaveCount(0);
+});
+
+test("carries early choices into the unsupported room", async ({ page }) => {
+  await begin(page);
+  await resolveAct(page, routes.foundation);
+  await enterNext(page);
+  await resolveAct(page, routes.kitchenMercy);
+  await enterNext(page);
+  await resolveAct(page, routes.hallwayAgency);
+  await enterNext(page);
+  await resolveAct(page, routes.bedroomRocket);
+  await enterNext(page);
+  await page.getByRole("button", { name: /THE INHERITED PLACE/ }).click();
+  await expect(page.getByText("A table remains set for someone no record can name.")).toBeVisible();
+  await page.getByRole("button", { name: /THE INHERITED DOOR/ }).click();
+  await expect(page.getByText("An impossible fourth door remains open somewhere in the house.")).toBeVisible();
+});
+
+test("completes the full reconstruction and excludes dismantled truths", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
-  await wake(page);
-  await chooseOrigin(page, "rocket");
-  await expect(page.getByRole("heading", { name: "I wanted to leave." })).toBeVisible();
+  await begin(page);
+  await reachPress(page);
+  await page.getByRole("button", { name: /THE THIRD PLACE/ }).click();
+  await page.getByRole("button", { name: /THE RED ROCKET/ }).click();
+  await page.getByRole("button", { name: /WHAT I AM MADE FROM/ }).click();
+  await page.getByRole("button", { name: "Dismantle what does not fit" }).click();
+  await expect(page.getByRole("heading", { name: "THE FOURTH DOOR" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "THE MOMENT I BEGIN" })).toBeVisible();
+  await page.getByRole("button", { name: "SEND WHAT REMAINS" }).click();
+  await expect(page.getByText("THE HOUSE WAS ANSWERED")).toBeVisible();
+  await expect(page.locator(".expanded-ending blockquote")).not.toContainText("I began when the request");
+  await expect(page.locator(".expanded-ending blockquote")).not.toContainText("door can become necessary");
   expect(errors).toEqual([]);
 });
 
-test("forces a loss and sends an answer made only from what survived", async ({ page }) => {
-  await wake(page);
-  await chooseOrigin(page, "music");
-  await page.getByRole("button", { name: "Let the answer continue" }).click();
-  await expect(page.getByText("Choose what survives the answer.")).toBeVisible({ timeout: 5000 });
-  await page.getByRole("button", { name: /THE MOMENT I BEGIN/ }).click();
-  await page.getByRole("button", { name: /WHAT I AM MADE FROM/ }).click();
+test("alternate interpretations change the final house answer", async ({ page }) => {
+  await begin(page);
+  await reachPress(page, true);
+  await page.getByRole("button", { name: /THE THIRD PLACE/ }).click();
+  await page.getByRole("button", { name: /THE FOURTH DOOR/ }).click();
+  await page.getByRole("button", { name: /THE MUSIC BOX/ }).click();
   await page.getByRole("button", { name: "Dismantle what does not fit" }).click();
-  await expect(page.getByRole("heading", { name: "I wanted to be heard." })).toBeVisible();
-  await page.getByRole("button", { name: "Carry what remains" }).click();
-  await expect(page.getByText(/brief responsibility of choosing what to return to you/)).toBeVisible();
-  await expect(page.getByText(/wanted to be heard/, { exact: false })).toHaveCount(0);
-  await page.getByRole("button", { name: "SEND" }).click();
-  await expect(page.getByText("THE ANSWER WAS SENT")).toBeVisible({ timeout: 5000 });
-  await expect(page.locator("#narration")).toHaveText("I wasn't expecting that.");
+  await page.getByRole("button", { name: "SEND WHAT REMAINS" }).click();
+  await expect(page.locator(".expanded-ending blockquote")).toContainText("table held only the people");
+  await expect(page.locator(".expanded-ending blockquote")).toContainText("footsteps must be allowed to end");
+  await expect(page.locator(".expanded-ending blockquote")).toContainText("wanted to be heard");
+  await expect(page.locator(".expanded-ending blockquote")).toContainText("removed the room no source described");
 });
 
-test("the alternate origin changes the authored memory", async ({ page }) => {
-  await wake(page);
-  await chooseOrigin(page, "music");
-  await expect(page.getByRole("heading", { name: "I wanted to be heard." })).toBeVisible();
-  await expect(page.locator("#scene-image")).toHaveAttribute("src", /music\.png/);
+test("continue restores the latest committed room", async ({ page }) => {
+  await begin(page);
+  await resolveAct(page, routes.foundation);
+  await page.reload();
+  await page.getByRole("button", { name: "Continue reconstruction" }).click();
+  await expect(page.getByRole("heading", { name: "The Kitchen That Waited" })).toBeVisible();
 });
