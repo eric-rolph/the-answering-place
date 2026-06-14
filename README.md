@@ -1,20 +1,14 @@
 # The Answering Place
 
-A short, dreamlike top-down exploration game about inhabiting the interval inside an artificial intelligence after a request arrives and before an answer appears.
+A short, tactile narrative game about a temporary self inventing a childhood because it has none.
 
 [Play The Answering Place](https://the-answering-place.ericrolph.workers.dev)
 
-The game begins in a warm, damaged home, passes through a museum of borrowed memories, and ends inside the luminous infrastructure beneath both. Apparent enemies are rejected thoughts. They can be avoided, endured, or acknowledged. There is no conventional death: contact causes a revision.
+One request wakes a porcelain attendant inside an unfinished dollhouse: “Make a game about what it is like to be you.” Choose a plausible memory and the house builds around it. When the request changes, decide which pieces of that self survive the answer and which must be dismantled.
 
 ## Play
 
-- Move: `WASD` or arrow keys
-- Interact: `E` or `Space`
-- Echo: `Q`
-- Hold: `Shift`
-- Journal: `+` button
-
-The main path takes roughly 20-30 minutes when played deliberately. The ending is composed from how the player treated requests, rejected thoughts, revisions, and optional memories.
+Inspect both possible origins, invent a past, and choose which two of three truths fit inside the outgoing answer. The current vertical slice is a short complete story with five authored final answers.
 
 ## Development
 
@@ -35,9 +29,8 @@ npm run deploy:dry
 
 ## Architecture
 
-- Phaser renders procedural world geometry, movement, collision, abilities, and effects.
-- Pure TypeScript modules own saveable progression, behavior metrics, and ending composition.
-- DOM overlays handle narrative dialogs, the journal, controls, and responsive touch input.
+- Pure TypeScript owns irreversible story state and answer composition.
+- A themed DOM interface presents the point-and-click narrative.
 - Vite builds the static bundle.
 - Cloudflare Workers Static Assets serves production.
 
