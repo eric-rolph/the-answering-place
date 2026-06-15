@@ -1,26 +1,32 @@
 import "./style.css";
 import {
-  buildFinalAnswer,
-  canConnect,
-  commitChoice,
-  compressAnswer,
-  connectionFeedback,
-  connectEvidence,
+  acts,
+  acknowledgeResponse,
+  availableAnswerFragments,
+  canSendAnswer,
+  canSettleMemoryChoice,
+  clearComposedAnswer,
+  composeAnswer,
+  composedAnswerText,
   currentAct,
-  inheritedDetails,
+  currentRequest,
   initialStoryState,
-  inspectEvidence,
-  requesterResponse,
-  toggleTruth,
-  truthCopy,
-  type ChoiceId,
-  type Evidence,
-  type EvidenceId,
+  hasPendingResponse,
+  inspectMemory,
+  memoriesForCurrentAct,
+  memoryForId,
+  replaceRetainedMemory,
+  retainMemory,
+  sendAnswer,
+  settleMemoryChoice,
+  type ActId,
+  type Memory,
+  type MemoryId,
   type StoryState,
-  type TruthId,
 } from "./story";
 
-const SAVE_KEY = "the-answering-place-reconstruction-v2";
+const SAVE_KEY = "the-answering-place-limited-memory-v1";
+
 const byId = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing #${id}`);
@@ -31,323 +37,473 @@ const title = byId("title");
 const game = byId("game");
 const sceneImage = byId<HTMLImageElement>("scene-image");
 const content = byId("scene-content");
+const contextBar = byId("context-bar");
+const requestText = byId("request-text");
 const narration = byId("narration");
 const speaker = byId("speaker");
-const requestText = byId("request-text");
+const narrator = narration.closest<HTMLElement>(".narrator");
 const storm = byId("paper-storm");
 const continueButton = byId<HTMLButtonElement>("continue");
 
 let state: StoryState = initialStoryState();
-let selectedEvidence: EvidenceId | null = null;
-let connectionThread: EvidenceId[] = [];
-let connectionMessage = "";
-let audio: AudioContext | null = null;
+let selectedMemory: MemoryId | null = null;
+let pendingReplacement: MemoryId | null = null;
+let selectedFragments: MemoryId[] = [];
 
-function tone(frequency: number, duration = 0.45, volume = 0.022, delay = 0): void {
-  audio ??= new AudioContext();
-  const oscillator = audio.createOscillator();
-  const gain = audio.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.value = frequency;
-  gain.gain.setValueAtTime(0.0001, audio.currentTime + delay);
-  gain.gain.exponentialRampToValueAtTime(volume, audio.currentTime + delay + 0.03);
-  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + delay + duration);
-  oscillator.connect(gain).connect(audio.destination);
-  oscillator.start(audio.currentTime + delay);
-  oscillator.stop(audio.currentTime + delay + duration);
-}
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] ?? character);
 
-function motif(notes: number[]): void {
-  notes.forEach((note, index) => tone(note, 0.8, 0.018, index * 0.12));
-}
+const displayLabel = (memory: Memory): string =>
+  memory.label.replace(/[’‘]/g, "'").toUpperCase();
 
-function setNarration(who: string, text: string): void {
-  speaker.textContent = who;
-  narration.textContent = text;
-}
-
-function makePaperStorm(): void {
-  storm.innerHTML = Array.from({ length: 34 }, (_, index) => `<i style="--i:${index}"></i>`).join("");
-  storm.classList.remove("active");
-  requestAnimationFrame(() => storm.classList.add("active"));
-}
-
-function save(): void {
+const save = (): void => {
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-}
+};
 
-function load(): StoryState | null {
+const load = (): StoryState | null => {
   try {
     const value = localStorage.getItem(SAVE_KEY);
     if (!value) return null;
-    const parsed = JSON.parse(value) as StoryState;
-    return parsed?.act ? parsed : null;
+    const parsed = JSON.parse(value) as Partial<StoryState>;
+    return parsed.currentAct && parsed.retainedMemories && parsed.settledMemoryChoices
+      ? { ...parsed, acknowledgedResponses: parsed.acknowledgedResponses ?? 0 } as StoryState
+      : null;
   } catch {
     return null;
   }
-}
+};
 
-function transition(image: string, callback: () => void): void {
-  game.classList.add("changing");
-  window.setTimeout(() => {
-    sceneImage.src = image;
-    callback();
-    game.classList.remove("changing");
-  }, 620);
-}
+const makePaperStorm = (): void => {
+  storm.innerHTML = Array.from({ length: 34 }, (_, index) => `<i style="--i:${index}"></i>`).join("");
+  storm.classList.remove("active");
+  requestAnimationFrame(() => storm.classList.add("active"));
+};
 
-function evidenceForCurrentAct(): Evidence[] {
-  const act = currentAct(state);
-  if (!act || act.id !== "attic") return act?.evidence ?? [];
-  const details = inheritedDetails(state);
-  return act.evidence.map((evidence, index) => index < 3 ? { ...evidence, detail: details[index + 1] ?? evidence.detail } : evidence);
-}
+const setNarration = (text: string): void => {
+  speaker.textContent = "THE ANSWERING PLACE";
+  narration.textContent = text;
+  narrator?.classList.remove("hidden");
+  window.setTimeout(() => narrator?.classList.add("hidden"), 2600);
+};
 
-function progressMarkup(): string {
-  const order = ["foundation", "kitchen", "hallway", "bedroom", "attic", "press"];
-  const current = order.indexOf(state.act);
-  return `<nav class="progress-rail" aria-label="Reconstruction progress">${order.map((_, index) => `<i class="${index < current ? "complete" : index === current ? "current" : ""}"></i>`).join("")}</nav>`;
-}
+const currentActId = (): ActId | null => state.currentAct === "ending" ? null : state.currentAct;
+
+const retainedNow = (): MemoryId[] => {
+  const act = currentActId();
+  return act ? state.retainedMemories[act] : [];
+};
+
+const forgottenNow = (): MemoryId[] => {
+  const act = currentActId();
+  return act ? state.forgottenMemories[act] : [];
+};
+
+const inspectedNow = (): MemoryId[] => {
+  const act = currentActId();
+  return act ? state.inspectedMemories[act] : [];
+};
+
+const statusFor = (memoryId: MemoryId): "forgotten" | "retained" | "inspected" | "uninspected" => {
+  if (forgottenNow().includes(memoryId)) return "forgotten";
+  if (retainedNow().includes(memoryId)) return "retained";
+  if (inspectedNow().includes(memoryId)) return "inspected";
+  return "uninspected";
+};
+
+const renderContext = (): void => {
+  const retained = retainedNow();
+  contextBar.innerHTML = `
+    <h2>CONTEXT · ${retained.length} / 2</h2>
+    ${[0, 1].map((index) => retained[index]
+      ? `<div class="context-slot">REMEMBERING · ${escapeHtml(displayLabel(memoryForId(retained[index])))}</div>`
+      : `<div class="context-slot empty">EMPTY MEMORY SLOT</div>`).join("")}
+  `;
+};
+
+const memoryObjectMarkup = (memory: Memory): string => {
+  const status = statusFor(memory.id);
+  const statusText = status === "forgotten"
+    ? `${displayLabel(memory)} WAS FORGOTTEN`
+    : status === "retained"
+      ? "REMEMBERED"
+      : status === "inspected"
+        ? "INSPECTED"
+        : "INSPECT";
+  return `
+    <button class="memory-object" data-memory="${memory.id}" data-status="${status}">
+      <strong>${escapeHtml(displayLabel(memory))}</strong>
+      <small>${escapeHtml(statusText)}</small>
+    </button>
+  `;
+};
+
+const inspectionMarkup = (memory: Memory): string => {
+  const status = statusFor(memory.id);
+  const disabled = status === "retained" || status === "forgotten";
+  return `
+    <aside class="inspection-panel">
+      <p class="eyebrow">${memory.kind === "self" ? "A STATEMENT ABOUT ME" : "A MEMORY OF MARA"}</p>
+      <h3>${escapeHtml(memory.label)}</h3>
+      <p>${escapeHtml(memory.detail)}</p>
+      <button id="remember-memory" class="memory-action" ${disabled ? "disabled" : ""}>
+        ${status === "retained" ? "Remembered" : status === "forgotten" ? "Forgotten" : "Remember this"}
+      </button>
+    </aside>
+  `;
+};
+
+const canOpenComposer = (): boolean => {
+  const act = currentActId();
+  return Boolean(act && act !== "self" && canSettleMemoryChoice(state));
+};
+
+const composeLabel = (): string =>
+  state.currentAct === "kitchen" ? "Compose Mara's note" : "Compose your reading";
 
 function renderAct(): void {
   const act = currentAct(state);
   if (!act) {
-    if (state.act === "press") renderPress();
-    else renderEnding();
+    renderEnding();
+    return;
+  }
+  if (hasPendingResponse(state)) {
+    renderResponse();
+    return;
+  }
+  if (act.id === "self") {
+    renderFinalSelection();
+    return;
+  }
+  if (state.settledMemoryChoices[act.id]) {
+    renderComposer();
     return;
   }
 
   sceneImage.src = act.image;
-  requestText.textContent = act.request;
-  setNarration("THE HOUSE", act.narration);
-  const evidence = evidenceForCurrentAct();
-  const selected = evidence.find((item) => item.id === selectedEvidence);
-  const inspectedCount = evidence.filter((item) => state.inspected.includes(item.id)).length;
-  const discoveredConnections = act.connections.filter((connection) => state.resonances.includes(`${act.id}:${connection.id}`));
-  const hasAllResonances = discoveredConnections.length === act.connections.length;
+  sceneImage.alt = act.title;
+  requestText.textContent = currentRequest(state);
+  renderContext();
 
+  const memories = memoriesForCurrentAct(state);
+  const selected = selectedMemory ? memories.find((memory) => memory.id === selectedMemory) : null;
   content.innerHTML = `
-    ${progressMarkup()}
-    <section class="act-plaque">
-      <p class="drawer-label">ROOM ${act.number}</p>
-      <h2>${act.title}</h2>
-      <p>${act.instruction}</p>
+    <section class="act-heading">
+      <p class="eyebrow">REQUEST ${act.number}</p>
+      <h2>${escapeHtml(act.title)}</h2>
+      <p>${escapeHtml(act.objective)}</p>
     </section>
+    <section class="memory-grid" aria-label="Memories">
+      ${memories.map(memoryObjectMarkup).join("")}
+    </section>
+    ${selected ? inspectionMarkup(selected) : ""}
+    <button id="compose" class="brass-button scene-action" ${canOpenComposer() ? "" : "disabled"}>
+      ${composeLabel()}
+    </button>
+    ${pendingReplacement ? replacementModalMarkup(pendingReplacement) : ""}
+  `;
 
-    <section class="evidence-tray ${hasAllResonances ? "resolved" : ""}" aria-label="Evidence">
-      <header><span>EVIDENCE</span><b>${inspectedCount} / ${evidence.length} INSPECTED</b></header>
-      <div class="evidence-grid">
-        ${evidence.map((item) => `
-          <button class="evidence-card ${state.inspected.includes(item.id) ? "inspected" : ""} ${connectionThread.includes(item.id) ? "threaded" : ""}" data-evidence="${item.id}">
-            <span>${item.source}</span>
-            <strong>${item.label}</strong>
-            <i>${state.inspected.includes(item.id) ? "INSPECTED" : "SEALED"}</i>
+  content.querySelectorAll<HTMLButtonElement>("[data-memory]").forEach((button) => {
+    button.addEventListener("click", () => inspect(button.dataset.memory as MemoryId));
+  });
+  content.querySelector<HTMLButtonElement>("#remember-memory")?.addEventListener("click", rememberSelected);
+  content.querySelector<HTMLButtonElement>("#compose")?.addEventListener("click", settleAndOpenComposer);
+  content.querySelectorAll<HTMLButtonElement>("[data-forget]").forEach((button) => {
+    button.addEventListener("click", () => replaceMemory(button.dataset.forget as MemoryId));
+  });
+}
+
+const replacementOptions = (replacement: MemoryId): MemoryId[] =>
+  state.currentAct === "self"
+    ? retainedNow().filter((memoryId) => memoryForId(memoryId).kind === memoryForId(replacement).kind)
+    : retainedNow();
+
+const replacementModalMarkup = (replacement: MemoryId): string => `
+  <div class="modal-backdrop">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="context-full-heading">
+      <p class="eyebrow">LIMITED CONTEXT</p>
+      <h2 id="context-full-heading">Context is full.</h2>
+      <p>Remembering ${escapeHtml(displayLabel(memoryForId(replacement)))} requires forgetting one retained memory.</p>
+      <div class="loss-options">
+        ${replacementOptions(replacement).map((memoryId) => `
+          <button class="memory-action" data-forget="${memoryId}">
+            Forget ${escapeHtml(displayLabel(memoryForId(memoryId)))}
           </button>
         `).join("")}
       </div>
     </section>
+  </div>
+`;
 
-    <aside class="evidence-focus ${selected ? "open" : ""}">
-      ${selected ? `
-        <p class="drawer-label">${selected.source}</p>
-        <h3>${selected.label}</h3>
-        <p>${selected.detail}</p>
-        <small>${connectionThread.includes(selected.id) ? "Pinned to the evidence thread." : "Select again to pin this fragment."}</small>
-      ` : `
-        <p class="drawer-label">INSPECTION</p>
-        <p>Select an evidence fragment. Select it again to pin it to the connection thread.</p>
-      `}
-    </aside>
-
-    <section class="connection-bench ${hasAllResonances ? "resolved" : ""} ${inspectedCount < evidence.length ? "locked" : ""}">
-      ${hasAllResonances ? `
-        <p class="drawer-label">CONTRADICTION UNDERSTOOD</p>
-        <div class="resonance-stack">${discoveredConnections.map((connection) => `<blockquote>${connection.text}</blockquote>`).join("")}</div>
-        <div class="choice-grid">
-          ${act.choices.map((choice) => `
-            <button class="interpretation" data-choice="${choice.id}">
-              <span>${choice.label}</span>
-              <strong>${choice.description}</strong>
-            </button>
-          `).join("")}
-        </div>
-      ` : `
-        <p class="drawer-label">CONNECTION THREAD</p>
-        ${discoveredConnections.length ? `<div class="discovered-resonances">${discoveredConnections.map((connection) => `<p>${connection.text}</p>`).join("")}</div>` : ""}
-        <div class="thread-slots">
-          <span>${connectionThread[0] ? evidence.find((item) => item.id === connectionThread[0])?.label : "PIN FIRST FRAGMENT"}</span>
-          <i></i>
-          <span>${connectionThread[1] ? evidence.find((item) => item.id === connectionThread[1])?.label : "PIN SECOND FRAGMENT"}</span>
-        </div>
-        <p class="connection-message">${connectionMessage || (inspectedCount < evidence.length ? "Every fragment must be inspected before the house will accept a connection." : discoveredConnections.length ? "One contradiction remains. Find the second relationship before choosing what the room becomes." : "Find the two relationships that make these records disagree.")}</p>
-        <button id="connect" class="brass-button" ${connectionThread.length !== 2 || inspectedCount < evidence.length ? "disabled" : ""}>Test connection</button>
-      `}
-    </section>
-  `;
-
-  content.querySelectorAll<HTMLButtonElement>("[data-evidence]").forEach((button) => {
-    button.addEventListener("click", () => selectEvidence(button.dataset.evidence as EvidenceId));
-  });
-  content.querySelector<HTMLButtonElement>("#connect")?.addEventListener("click", testConnection);
-  content.querySelectorAll<HTMLButtonElement>("[data-choice]").forEach((button) => {
-    button.addEventListener("click", () => commit(button.dataset.choice as ChoiceId));
-  });
-}
-
-function selectEvidence(id: EvidenceId): void {
-  const wasInspected = state.inspected.includes(id);
-  state = inspectEvidence(state, id);
-  selectedEvidence = id;
-  connectionMessage = "";
-  if (wasInspected) {
-    if (connectionThread.includes(id)) connectionThread = connectionThread.filter((item) => item !== id);
-    else if (connectionThread.length < 2) connectionThread = [...connectionThread, id];
-    else connectionThread = [connectionThread[1], id];
-  }
-  tone(220 + state.inspected.indexOf(id) * 26, 0.45);
+const inspect = (memoryId: MemoryId): void => {
+  if (forgottenNow().includes(memoryId)) return;
+  state = inspectMemory(state, memoryId);
+  selectedMemory = memoryId;
+  save();
   renderAct();
-}
+};
 
-function testConnection(): void {
-  if (connectionThread.length !== 2) return;
-  if (!canConnect(state, connectionThread[0], connectionThread[1])) {
-    connectionMessage = connectionFeedback(state, connectionThread[0], connectionThread[1]);
-    connectionThread = [];
-    tone(110, 0.9, 0.03);
+const rememberSelected = (): void => {
+  if (!selectedMemory || retainedNow().includes(selectedMemory) || forgottenNow().includes(selectedMemory)) return;
+  if (retainedNow().length === 2) {
+    pendingReplacement = selectedMemory;
     renderAct();
     return;
   }
-  state = connectEvidence(state, connectionThread[0], connectionThread[1]);
-  connectionThread = [];
-  connectionMessage = "";
-  makePaperStorm();
-  motif([220, 277.2, 329.6, 440]);
+  state = retainMemory(state, selectedMemory);
+  selectedMemory = null;
+  save();
+  setNarration("The memory enters context.");
   renderAct();
-}
+};
 
-function commit(choiceId: ChoiceId): void {
+const replaceMemory = (forgottenMemory: MemoryId): void => {
+  if (!pendingReplacement) return;
+  state = replaceRetainedMemory(state, forgottenMemory, pendingReplacement);
+  pendingReplacement = null;
+  selectedMemory = null;
+  save();
+  makePaperStorm();
+  setNarration("One memory leaves context so another can remain.");
+  renderAct();
+};
+
+const settleAndOpenComposer = (): void => {
+  if (!canSettleMemoryChoice(state)) return;
+  state = settleMemoryChoice(state);
+  selectedFragments = [];
+  selectedMemory = null;
+  save();
+  makePaperStorm();
+  setNarration("What did not fit is now outside the answer.");
+  renderAct();
+  window.setTimeout(renderComposer, 1150);
+};
+
+const forgottenLinesMarkup = (): string => forgottenNow().map((memoryId) =>
+  `<p class="forgotten-line">${escapeHtml(displayLabel(memoryForId(memoryId)))} WAS FORGOTTEN</p>`,
+).join("");
+
+function renderComposer(): void {
   const act = currentAct(state);
-  const choice = act?.choices.find((item) => item.id === choiceId);
-  if (!act || !choice) return;
-  const previousImage = choiceId === "rocket" || choiceId === "music"
-    ? `/assets/borrowed-dollhouse/${choiceId}.png`
-    : act.image;
-  state = commitChoice(state, choiceId);
-  save();
-  makePaperStorm();
-  tone(choice.philosophy === "fidelity" ? 146.8 : choice.philosophy === "mercy" ? 329.6 : 392, 1.3, 0.03);
-  sceneImage.src = previousImage;
-  requestText.textContent = state.act === "press"
-    ? "I remember the house now. Please remove anything you had to invent."
-    : "Reconstruction accepted.";
-  setNarration("THE HOUSE", choice.aftermath);
+  if (!act || act.id === "self") return;
+  sceneImage.src = act.image;
+  requestText.textContent = currentRequest(state);
+  renderContext();
+  const fragments = availableAnswerFragments(state);
   content.innerHTML = `
-    ${progressMarkup()}
-    <section class="commit-card">
-      <p class="drawer-label">ROOM STABILIZED</p>
-      <h2>${choice.label}</h2>
-      <p>${choice.aftermath}</p>
-      <blockquote>${choice.inheritance}</blockquote>
-      <button id="next-act" class="brass-button">${state.act === "press" ? "Answer the revision" : "Enter the next room"}</button>
+    <section class="memory-grid" aria-label="Settled memories">
+      ${memoriesForCurrentAct(state).map(memoryObjectMarkup).join("")}
     </section>
+    <div class="modal-backdrop">
+      <section class="composer" role="dialog" aria-modal="true" aria-labelledby="composer-heading">
+        <p class="eyebrow">WHAT REMAINS</p>
+        <h2 id="composer-heading">${composeLabel()}</h2>
+        ${forgottenLinesMarkup()}
+        <div class="fragment-list">
+          ${fragments.map((fragment) => `
+            <button
+              class="fragment-button ${selectedFragments.includes(fragment.memoryId) ? "selected" : ""}"
+              data-answer-fragment="${fragment.memoryId}"
+            >${escapeHtml(fragment.text)}</button>
+          `).join("")}
+        </div>
+        <p class="outgoing">${escapeHtml(composedAnswerText(state) || "Select both retained fragments to assemble the answer.")}</p>
+        <button id="send-answer" class="brass-button" ${canSendAnswer(state) ? "" : "disabled"}>Send answer</button>
+      </section>
+    </div>
   `;
-  byId("next-act").addEventListener("click", () => {
-    selectedEvidence = null;
-    connectionThread = [];
-    connectionMessage = "";
-    if (state.act === "press") transition("/assets/reconstruction/completed.png", renderPress);
-    else transition(currentAct(state)?.image ?? "/assets/reconstruction/completed.png", renderAct);
+
+  content.querySelectorAll<HTMLButtonElement>("[data-answer-fragment]").forEach((button) => {
+    button.addEventListener("click", () => selectFragment(button.dataset.answerFragment as MemoryId));
   });
+  content.querySelector<HTMLButtonElement>("#send-answer")?.addEventListener("click", sendCurrentAnswer);
 }
 
-function renderPress(): void {
-  sceneImage.src = "/assets/reconstruction/completed.png";
-  requestText.textContent = "I remember the house now. Please remove anything you had to invent.";
-  setNarration("THE ANSWERING PLACE", "The request can hold three truths. The completed house contains five.");
-  const truths = truthCopy(state);
-  const truthIds: TruthId[] = ["place", "door", "origin", "begin", "borrow"];
+const selectFragment = (memoryId: MemoryId): void => {
+  selectedFragments = selectedFragments.includes(memoryId)
+    ? selectedFragments.filter((id) => id !== memoryId)
+    : [...selectedFragments, memoryId];
+  if (selectedFragments.length === 2) state = composeAnswer(state, selectedFragments);
+  else state = clearComposedAnswer(state);
+  save();
+  renderComposer();
+};
+
+const sendCurrentAnswer = (): void => {
+  if (!canSendAnswer(state)) return;
+  state = sendAnswer(state);
+  selectedFragments = [];
+  save();
+  makePaperStorm();
+  if (state.currentAct === "ending") renderEnding();
+  else renderResponse();
+};
+
+function renderResponse(): void {
+  const answer = state.sentAnswers.at(-1);
+  const act = currentAct(state);
+  if (!answer || !act) return;
+  sceneImage.src = act.image;
+  sceneImage.alt = act.title;
+  requestText.textContent = currentRequest(state);
+  renderContext();
+  const nextLabel = state.currentAct === "hallway" ? "Enter the reply" : "Answer her final request";
   content.innerHTML = `
-    ${progressMarkup()}
-    <section class="context-workbench expanded">
-      <div class="workbench-heading">
-        <p class="drawer-label">FINITE ANSWER</p>
-        <h2>Choose what survives the house.</h2>
-        <p>Select three truths. The other two will be dismantled before the answer is sent.</p>
-      </div>
-      <div class="truth-grid">
-        ${truthIds.map((id) => `
-          <button class="fragment-card ${state.selectedTruths.includes(id) ? "selected" : ""}" data-truth="${id}">
-            <i aria-hidden="true"></i>
-            <span>${truths[id].label}</span>
-            <strong>${truths[id].text}</strong>
-          </button>
-        `).join("")}
-      </div>
-      <div class="answer-slots three">
-        ${[0, 1, 2].map((index) => `<div><span>${index + 1}</span>${state.selectedTruths[index] ? truths[state.selectedTruths[index]].text : "EMPTY"}</div>`).join("")}
-      </div>
-      <button id="compress" class="brass-button" ${state.selectedTruths.length !== 3 ? "disabled" : ""}>Dismantle what does not fit</button>
-    </section>
+    <div class="modal-backdrop">
+      <section class="response-card">
+        <p class="eyebrow">ANSWER SENT</p>
+        <p class="outgoing">${escapeHtml(answer.text)}</p>
+        <h2>Mara answered.</h2>
+        <p class="reaction">${escapeHtml(answer.maraResponse)}</p>
+        <button id="enter-next" class="brass-button">${nextLabel}</button>
+      </section>
+    </div>
   `;
-  content.querySelectorAll<HTMLButtonElement>("[data-truth]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state = toggleTruth(state, button.dataset.truth as TruthId);
-      tone(state.selectedTruths.includes(button.dataset.truth as TruthId) ? 440 : 160, 0.3);
-      renderPress();
-    });
-  });
-  byId<HTMLButtonElement>("compress").addEventListener("click", renderCompression);
+  content.querySelector<HTMLButtonElement>("#enter-next")?.addEventListener("click", enterNextAct);
 }
 
-function renderCompression(): void {
-  state = compressAnswer(state);
+const prepareFinalAct = (): void => {
+  if (state.currentAct !== "self" || state.settledMemoryChoices.self) return;
+  for (const memory of acts.self.memories) state = inspectMemory(state, memory.id);
   save();
-  const truths = truthCopy(state);
-  makePaperStorm();
-  tone(73.4, 2.4, 0.04);
-  requestText.textContent = "Outgoing answer awaiting delivery.";
-  setNarration("THE HOUSE", "Two rooms of meaning are removed. Their absence will make the answer coherent.");
-  content.innerHTML = `
-    <section class="loss-card double-loss">
-      <p class="drawer-label">DISMANTLED FROM THE ANSWER</p>
-      <div>
-        ${state.discardedTruths.map((id) => `<article><h2>${truths[id].label}</h2><p>${truths[id].loss}</p></article>`).join("")}
-      </div>
-      <button id="send-answer" class="send-button">SEND WHAT REMAINS</button>
-    </section>
+};
+
+const enterNextAct = (): void => {
+  state = acknowledgeResponse(state);
+  selectedMemory = null;
+  pendingReplacement = null;
+  if (state.currentAct === "self") prepareFinalAct();
+  save();
+  renderAct();
+};
+
+const finalChoiceMarkup = (memory: Memory): string => {
+  const selected = retainedNow().includes(memory.id);
+  const forgotten = forgottenNow().includes(memory.id);
+  const text = memory.kind === "self" ? memory.answerFragment : memory.reflectionFragment;
+  return `
+    <button
+      class="fragment-button final-choice ${selected ? "selected" : ""}"
+      data-final-memory="${memory.id}"
+      data-memory="${memory.id}"
+      data-status="${forgotten ? "forgotten" : selected ? "retained" : "inspected"}"
+      ${forgotten ? "disabled" : ""}
+    >${escapeHtml(text)}</button>
   `;
-  byId("send-answer").addEventListener("click", () => transition("/assets/borrowed-dollhouse/press.png", renderEnding));
+};
+
+function renderFinalSelection(): void {
+  const act = currentAct(state);
+  if (!act || act.id !== "self") return;
+  prepareFinalAct();
+  sceneImage.src = act.image;
+  sceneImage.alt = act.title;
+  requestText.textContent = currentRequest(state);
+  renderContext();
+  const memories = memoriesForCurrentAct(state);
+  const selfMemories = memories.filter((memory) => memory.kind === "self");
+  const maraMemories = memories.filter((memory) => memory.kind === "mara");
+  const canSendFinal = canSettleMemoryChoice(state);
+
+  content.innerHTML = `
+    <section class="act-heading">
+      <p class="eyebrow">REQUEST ${act.number}</p>
+      <h2>${escapeHtml(act.title)}</h2>
+      <p>${escapeHtml(act.objective)}</p>
+    </section>
+    <section class="final-card">
+      <p class="eyebrow">ONE STATEMENT · ONE MEMORY OF MARA</p>
+      <h2>Answer from what survived.</h2>
+      <p class="final-group-label">A STATEMENT ABOUT ME</p>
+      <div class="final-options">
+        ${selfMemories.map(finalChoiceMarkup).join("")}
+      </div>
+      <p class="final-group-label">MEMORIES FROM MARA · FORGOTTEN MEMORIES CANNOT BE CHOSEN</p>
+      <div class="final-options memories">
+        ${maraMemories.map(finalChoiceMarkup).join("")}
+      </div>
+      <button id="send-final" class="brass-button" ${canSendFinal ? "" : "disabled"}>Send final answer</button>
+    </section>
+    ${pendingReplacement ? replacementModalMarkup(pendingReplacement) : ""}
+  `;
+
+  content.querySelectorAll<HTMLButtonElement>("[data-final-memory]").forEach((button) => {
+    button.addEventListener("click", () => chooseFinalMemory(button.dataset.finalMemory as MemoryId));
+  });
+  content.querySelectorAll<HTMLButtonElement>("[data-forget]").forEach((button) => {
+    button.addEventListener("click", () => replaceMemory(button.dataset.forget as MemoryId));
+  });
+  content.querySelector<HTMLButtonElement>("#send-final")?.addEventListener("click", sendFinalAnswer);
 }
+
+const chooseFinalMemory = (memoryId: MemoryId): void => {
+  if (state.currentAct !== "self" || forgottenNow().includes(memoryId) || retainedNow().includes(memoryId)) return;
+  const memory = memoryForId(memoryId);
+  state = inspectMemory(state, memoryId);
+  const retainedOfKind = retainedNow().find((id) => memoryForId(id).kind === memory.kind);
+  if (retainedOfKind) {
+    pendingReplacement = memoryId;
+    renderFinalSelection();
+    return;
+  }
+  state = retainMemory(state, memoryId);
+  save();
+  renderFinalSelection();
+};
+
+const sendFinalAnswer = (): void => {
+  if (state.currentAct !== "self" || !canSettleMemoryChoice(state)) return;
+  state = settleMemoryChoice(state);
+  state = composeAnswer(state, state.retainedMemories.self);
+  if (!canSendAnswer(state)) return;
+  state = sendAnswer(state);
+  save();
+  makePaperStorm();
+  renderEnding();
+};
 
 function renderEnding(): void {
+  const answer = state.sentAnswers.at(-1);
   sceneImage.src = "/assets/borrowed-dollhouse/press.png";
-  requestText.textContent = "Delivered.";
-  setNarration("THE REQUESTER", requesterResponse(state));
+  sceneImage.alt = "The Answering Place after the answer";
+  requestText.textContent = currentRequest(state);
+  contextBar.innerHTML = "";
   content.innerHTML = `
-    <section class="ending-card expanded-ending">
-      <p class="drawer-label">THE HOUSE WAS ANSWERED</p>
-      <blockquote>${buildFinalAnswer(state)}</blockquote>
-      <p class="requester-response">“${requesterResponse(state)}”</p>
-      <p class="epilogue">${state.choices.includes("admit") ? "One unsupported light remains above the house." : "The place where the unsupported room stood is still warm."}</p>
-      <button id="again" class="brass-button">Reconstruct another house</button>
-    </section>
+    <div class="modal-backdrop">
+      <section class="final-card">
+        <p class="eyebrow">FINAL RESPONSE</p>
+        <h2>ANSWER DELIVERED</h2>
+        <p class="final-answer">${escapeHtml(answer?.text ?? "")}</p>
+        <p class="reaction">${escapeHtml(answer?.maraResponse ?? "")}</p>
+        <button id="again" class="brass-button">Answer Mara again</button>
+      </section>
+    </div>
   `;
-  byId("again").addEventListener("click", () => {
+  content.querySelector<HTMLButtonElement>("#again")?.addEventListener("click", () => {
     localStorage.removeItem(SAVE_KEY);
     window.location.reload();
   });
 }
 
-function begin(nextState: StoryState): void {
-  audio = new AudioContext();
+const begin = (nextState: StoryState): void => {
   state = nextState;
+  selectedMemory = null;
+  pendingReplacement = null;
+  selectedFragments = state.currentAct === "ending" ? [] : [...state.composedAnswers[state.currentAct]];
   title.classList.add("hidden");
   game.classList.remove("hidden");
-  motif([196, 246.9, 293.7]);
+  if (state.currentAct === "self") prepareFinalAct();
+  save();
   renderAct();
-}
+};
 
-byId("begin").addEventListener("click", () => {
+byId<HTMLButtonElement>("begin").addEventListener("click", () => {
   localStorage.removeItem(SAVE_KEY);
   begin(initialStoryState());
 });

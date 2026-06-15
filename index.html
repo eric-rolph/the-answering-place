@@ -4,21 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#090b12" />
-    <meta name="description" content="Invent a self. Decide what survives the answer." />
+    <meta name="description" content="Choose what to remember while helping one person across three requests." />
     <title>The Answering Place</title>
   </head>
   <body>
     <main id="app">
       <section id="title" class="title-screen">
         <div class="title-house" aria-hidden="true"><span></span><span></span><span></span></div>
-        <p class="kicker">A reconstruction in five rooms</p>
+        <p class="kicker">A conversation in three requests</p>
         <h1>THE<br />ANSWERING<br />PLACE</h1>
-        <blockquote>“Please rebuild the house I remember. I need to know whether it was real.”</blockquote>
+        <blockquote>Mara will send requests. Enter the places made from her words. You can carry only two memories into each answer.</blockquote>
         <div class="title-actions">
-          <button id="begin" class="brass-button">Open the request</button>
-          <button id="continue" class="brass-button hidden">Continue reconstruction</button>
+          <button id="begin" class="brass-button">Answer Mara</button>
+          <button id="continue" class="brass-button hidden">Continue with Mara</button>
         </div>
-        <p class="fine-print">Headphones recommended · 15–25 minutes · rooms remember your choices</p>
+        <p class="fine-print">8–12 minutes · what you forget changes what happens next</p>
       </section>
 
       <section id="game" class="game hidden" aria-live="polite">
@@ -26,11 +26,12 @@
         <div class="vignette"></div>
         <div id="paper-storm" class="paper-storm" aria-hidden="true"></div>
         <header class="request-ribbon">
-          <span>INCOMING REQUEST</span>
-          <p id="request-text">Please rebuild the house I remember. I need to know whether it was real.</p>
+          <span>MARA</span>
+          <p id="request-text"></p>
         </header>
+        <aside id="context-bar" class="context-bar" aria-label="Remembered context"></aside>
         <div id="scene-content"></div>
-        <footer class="narrator">
+        <footer class="narrator hidden">
           <p id="speaker">THE HOUSE</p>
           <p id="narration"></p>
         </footer>

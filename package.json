@@ -1,7 +1,7 @@
 {
   "name": "the-answering-place",
   "version": "1.0.0",
-  "description": "A handcrafted narrative mystery about rebuilding a childhood home from contradictory evidence.",
+  "description": "A narrative game about attention, limited memory, and helping one person across three requests.",
   "private": true,
   "scripts": {
     "dev": "vite",

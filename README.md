@@ -1,14 +1,14 @@
 # The Answering Place
 
-A handcrafted narrative mystery about rebuilding a childhood home from contradictory evidence.
+A narrative game about attention, limited memory, and helping one person across three requests.
 
 [Play The Answering Place](https://the-answering-place.ericrolph.workers.dev)
 
-One request wakes a porcelain Attendant inside an empty brass foundation: “Please rebuild the house I remember. I need to know whether it was real.” Inspect testimony, objects, plans, and absences. Connect fragments that reveal what no single source can show. Every coherent room requires an omission or invention, and the completed house begins remembering the person who rebuilt it.
+Mara needs help speaking to her estranged younger brother. Enter the places made from her words, inspect the memories she gives you, and choose what limited context can carry into each answer. What you remember shapes the relationship. What you forget disappears.
 
 ## Play
 
-Reconstruct five acts by inspecting evidence, discovering resonances, and committing interpretations that remain visible in later rooms. The final answer can preserve only three of five truths. A deliberate first playthrough takes roughly 15-25 minutes.
+Each request contains three memories, but an answer can carry only two. Inspect a memory, choose to retain it, and explicitly decide what must be lost when context fills. Mara and Eli react to the details that survive. A first playthrough takes roughly 8-12 minutes.
 
 ## Development
 
@@ -29,8 +29,8 @@ npm run deploy:dry
 
 ## Architecture
 
-- Pure TypeScript owns irreversible multi-act story state, evidence connections, inherited choices, and answer composition.
-- A themed DOM interface presents physical evidence and authored miniature scenes.
+- Pure TypeScript owns irreversible memory state, answer composition, and consequence-driven requests.
+- A low-chrome DOM interface presents explorable memory objects while protecting the miniature scenes.
 - Vite builds the static bundle.
 - Cloudflare Workers Static Assets serves production.
 
@@ -46,4 +46,4 @@ GitHub Actions deploys pushes to `main`. Add a repository secret named `CLOUDFLA
 
 ## Creative Direction
 
-The game takes broad inspiration from dream-exploration games, including the emotional effect of quiet wandering and unexplained spaces. Its imagery, writing, environments, mechanics, and procedural art are original.
+The game takes broad inspiration from dream-exploration games, especially their quiet spaces and emotional uncertainty. Its imagery, writing, environments, mechanics, and procedural art are original.

@@ -1,330 +1,504 @@
-export type ActId = "foundation" | "kitchen" | "hallway" | "bedroom" | "attic" | "press" | "ending";
-export type Philosophy = "mercy" | "fidelity" | "agency";
-export type EvidenceId =
-  | "request" | "plan" | "measurements" | "ash"
-  | "photo" | "cup" | "places" | "blue"
-  | "hall-plan" | "footsteps" | "drawing" | "bedrooms"
-  | "rocket" | "music" | "stars" | "humming"
-  | "attic-place" | "attic-door" | "attic-origin" | "attic-bed";
-export type ChoiceId = "raise" | "wait" | "record" | "open" | "seal" | "rocket" | "music" | "admit" | "erase";
-export type TruthId = "place" | "door" | "origin" | "begin" | "borrow";
+export type ActId = "kitchen" | "hallway" | "self";
+export type StoryActId = ActId | "ending";
+export type MaraMemoryId =
+  | "blue-cup"
+  | "storm-song"
+  | "cruel-sentence"
+  | "exact-words"
+  | "seven-hour-delay"
+  | "unsent-draft";
+export type SelfMemoryId =
+  | "still-attending"
+  | "brief-request-shape"
+  | "things-that-did-not-fit";
+export type MemoryId = MaraMemoryId | SelfMemoryId;
+export type MemoryKind = "mara" | "self";
 
-export interface Evidence {
-  id: EvidenceId;
+export interface Memory {
+  id: MemoryId;
+  kind: MemoryKind;
   label: string;
   detail: string;
-  source: string;
+  answerFragment: string;
+  reflectionFragment: string;
 }
 
-export interface RoomChoice {
-  id: ChoiceId;
+export interface AnswerFragment {
+  memoryId: MemoryId;
   label: string;
-  description: string;
-  aftermath: string;
-  inheritance: string;
-  philosophy: Philosophy;
+  text: string;
 }
 
 export interface ActContent {
-  id: Exclude<ActId, "press" | "ending">;
+  id: ActId;
   number: string;
   title: string;
-  request: string;
   image: string;
   narration: string;
-  instruction: string;
-  evidence: Evidence[];
-  connections: Array<{ id: string; pair: [EvidenceId, EvidenceId]; text: string }>;
-  nearMisses: Array<{ pair: [EvidenceId, EvidenceId]; text: string }>;
-  choices: RoomChoice[];
+  objective: string;
+  memories: Memory[];
 }
+
+export interface SentAnswer {
+  act: ActId;
+  memoryIds: MemoryId[];
+  text: string;
+  maraResponse: string;
+  nextRequest: string;
+}
+
+type MemoryHistory = Record<ActId, MemoryId[]>;
 
 export interface StoryState {
-  act: ActId;
-  inspected: EvidenceId[];
-  resonances: string[];
-  choices: ChoiceId[];
-  selectedTruths: TruthId[];
-  discardedTruths: TruthId[];
+  currentAct: StoryActId;
+  inspectedMemories: MemoryHistory;
+  retainedMemories: MemoryHistory;
+  forgottenMemories: MemoryHistory;
+  settledMemoryChoices: Record<ActId, boolean>;
+  composedAnswers: MemoryHistory;
+  sentAnswers: SentAnswer[];
+  acknowledgedResponses: number;
 }
 
-export const initialStoryState = (): StoryState => ({
-  act: "foundation",
-  inspected: [],
-  resonances: [],
-  choices: [],
-  selectedTruths: [],
-  discardedTruths: [],
-});
-
-export const acts: Record<Exclude<ActId, "press" | "ending">, ActContent> = {
-  foundation: {
-    id: "foundation",
-    number: "I",
-    title: "The Foundation",
-    request: "Please rebuild the house I remember. I need to know whether it was real.",
-    image: "/assets/reconstruction/foundation.png",
-    narration: "Four records arrive. None of them agree on the size of the house.",
-    instruction: "Inspect every record. Then connect the two that expose the first contradiction.",
-    evidence: [
-      { id: "request", label: "THE REQUEST", source: "RECOVERED MESSAGE", detail: "Please rebuild the house I remember. I need to know whether it was real." },
-      { id: "plan", label: "THE FLOOR PLAN", source: "COUNTY ARCHIVE", detail: "A modest two-bedroom house. Every measured wall closes neatly." },
-      { id: "measurements", label: "THE MEASUREMENTS", source: "CHILD'S NOTEBOOK", detail: "Kitchen, hall, two bedrooms, and the room where we waited out storms." },
-      { id: "ash", label: "THE ASH ENVELOPE", source: "UNLABELED", detail: "Wallpaper ash. On the fold: YOU ALWAYS FORGET ONE ROOM." },
-    ],
-    connections: [
-      { id: "dimensions", pair: ["plan", "measurements"], text: "The measured rooms require more floor than the plan contains. A coherent house cannot hold every account." },
-      { id: "warning", pair: ["request", "ash"], text: "The ash was folded after the fire, around a warning written for whoever tried to rebuild the house next." },
-    ],
-    nearMisses: [
-      { pair: ["request", "plan"], text: "The requester recognizes the official outline, but never calls it home." },
-      { pair: ["measurements", "ash"], text: "Both records insist on a forgotten room. Neither can say where it belonged." },
-    ],
-    choices: [
-      { id: "raise", label: "RAISE THE FOUNDATION", description: "Begin with the contradiction intact.", aftermath: "Brass walls rise around an absence the plan cannot explain.", inheritance: "The house begins with one room missing.", philosophy: "agency" },
-    ],
-  },
+export const acts: Record<ActId, ActContent> = {
   kitchen: {
     id: "kitchen",
-    number: "II",
-    title: "The Kitchen That Waited",
-    request: "The kitchen is the clearest part. Start there.",
+    number: "I",
+    title: "The Kitchen",
     image: "/assets/reconstruction/kitchen.png",
-    narration: "The table remembers three places. The photograph remembers two children.",
-    instruction: "Inspect all four fragments. Find what the photograph failed to keep.",
-    evidence: [
-      { id: "photo", label: "FAMILY PHOTOGRAPH", source: "DATED JULY, YEAR ILLEGIBLE", detail: "Two children sit at the table. The chair nearest the camera is empty." },
-      { id: "cup", label: "CHIPPED BLUE CUP", source: "RECOVERED OBJECT", detail: "The glaze is worn only where a left hand would hold it." },
-      { id: "places", label: "TABLE MEMORY", source: "REQUESTER", detail: "There were always three places. Even after we stopped asking why." },
-      { id: "blue", label: "MOTHER'S NOTE", source: "RECIPE MARGIN", detail: "No blue dishes in this house. I cannot stand them." },
-    ],
-    connections: [
-      { id: "reflection", pair: ["photo", "cup"], text: "The cup appears faintly in the photograph's window reflection, held by someone outside the frame." },
-      { id: "forbidden", pair: ["places", "blue"], text: "The third place was kept with the one color forbidden from the house. Waiting for this person was an act of defiance." },
-    ],
-    nearMisses: [
-      { pair: ["photo", "places"], text: "The photograph may have been taken after the third place was set. Absence has no timestamp." },
-      { pair: ["cup", "blue"], text: "The forbidden cup was used often. Someone kept choosing it despite the rule." },
-    ],
-    choices: [
-      { id: "wait", label: "KEEP THE THIRD PLACE", description: "Treat expectation as evidence. Someone was meant to return.", aftermath: "The third place remains warm. The cup waits where a hand should be.", inheritance: "A table remains set for someone no record can name.", philosophy: "mercy" },
-      { id: "record", label: "SET THE TABLE FOR TWO", description: "Preserve only the people the record can support.", aftermath: "The third chair folds into the wall. The blue cup remains without an owner.", inheritance: "A blue cup survives after its place at the table is removed.", philosophy: "fidelity" },
+    narration: "The kitchen arrives from Mara's words, with one place set for Eli.",
+    objective: "Inspect the three memories. Retain exactly two for Mara's note.",
+    memories: [
+      {
+        id: "blue-cup",
+        kind: "mara",
+        label: "The blue cup",
+        detail: "Eli always took the chipped blue cup. Mara pretended not to notice when he packed it after the funeral.",
+        answerFragment: "I still think about the chipped blue cup you always chose.",
+        reflectionFragment: "The blue cup became part of how I understood the care and distance between you and Eli.",
+      },
+      {
+        id: "storm-song",
+        kind: "mara",
+        label: "The storm song",
+        detail: "When storms woke Eli, Mara sang the same unfinished song through the wall until he answered.",
+        answerFragment: "I remember singing the storm-night song until you answered through the wall.",
+        reflectionFragment: "The storm song showed me how recognition can survive inside a few remembered words.",
+      },
+      {
+        id: "cruel-sentence",
+        kind: "mara",
+        label: "The last thing I said",
+        detail: "At their mother's funeral Mara told Eli that leaving was the only thing he had ever done well.",
+        answerFragment: "I am sorry I said leaving was the only thing you had ever done well.",
+        reflectionFragment: "The last thing you said showed me that honesty can hurt and still make an answer possible.",
+      },
     ],
   },
   hallway: {
     id: "hallway",
-    number: "III",
-    title: "The Hallway With The Extra Door",
-    request: "I remember walking down the hall at night. I never remember reaching the end.",
+    number: "II",
+    title: "The Hallway",
     image: "/assets/reconstruction/hallway.png",
-    narration: "Three doors satisfy the plan. Four doors satisfy the footsteps.",
-    instruction: "Inspect every account. Connect the trace that stops with the drawing that continues.",
-    evidence: [
-      { id: "hall-plan", label: "HALLWAY PLAN", source: "COUNTY ARCHIVE", detail: "Three doors. No closet, stair, or opening at the north wall." },
-      { id: "footsteps", label: "DUSTED FOOTSTEPS", source: "RECOVERY PHOTO", detail: "A child's steps cross the hall and stop at the blank north wall." },
-      { id: "drawing", label: "FOUR BRASS KNOBS", source: "CHILD'S DRAWING", detail: "Four round knobs in a row. The last is drawn much larger than the others." },
-      { id: "bedrooms", label: "SIBLING TESTIMONY", source: "TRANSCRIPT", detail: "Every bedroom opened onto the hall. I am certain of that." },
-    ],
-    connections: [
-      { id: "fourth", pair: ["footsteps", "drawing"], text: "The last painted knob aligns exactly with the final footprint. The drawing completes a door the wall denies." },
-      { id: "three", pair: ["hall-plan", "bedrooms"], text: "The plan and testimony agree perfectly on three doors. The contradiction is not confusion. It is an extra memory." },
-    ],
-    nearMisses: [
-      { pair: ["hall-plan", "footsteps"], text: "The footsteps continue precisely to the point where the plan stops describing space." },
-      { pair: ["drawing", "bedrooms"], text: "The child drew one more door than the sibling remembers. Both count with certainty." },
-    ],
-    choices: [
-      { id: "open", label: "BUILD THE FOURTH DOOR", description: "Invent the structure required to make the accounts meet.", aftermath: "A fourth door opens onto darkness. The house says, very softly: That fits.", inheritance: "An impossible fourth door remains open somewhere in the house.", philosophy: "agency" },
-      { id: "seal", label: "KEEP THE WALL INTACT", description: "Let the contradiction remain unresolved.", aftermath: "The footsteps end at plaster. Something on the other side stops knocking.", inheritance: "A trail of footsteps ends at an unbroken wall.", philosophy: "fidelity" },
-    ],
-  },
-  bedroom: {
-    id: "bedroom",
-    number: "IV",
-    title: "The Bedroom Of Two Childhoods",
-    request: "The bedroom is wrong whenever I remember it. Please choose the version that belonged to me.",
-    image: "/assets/borrowed-dollhouse/choice.png",
-    narration: "The room offers two complete childhoods. Each explains the same loneliness differently.",
-    instruction: "Inspect both possible lives and the traces that make each one convincing.",
-    evidence: [
-      { id: "rocket", label: "THE RED ROCKET", source: "RECOVERED OBJECT", detail: "Its nose is worn smooth from being held during storms." },
-      { id: "music", label: "THE MUSIC BOX", source: "RECOVERED OBJECT", detail: "The mechanism repeats eight notes. A second voice hums on the ninth." },
-      { id: "stars", label: "CEILING CONSTELLATIONS", source: "TESTIMONY A", detail: "Someone drew stars overhead and promised the dark was only distance." },
-      { id: "humming", label: "THE HUMMING ROOM", source: "TESTIMONY B", detail: "Someone played the same eight notes until another room began humming along." },
-    ],
-    connections: [
-      { id: "leaving", pair: ["rocket", "stars"], text: "The rocket fits the worn patch beneath the painted stars. This childhood was practiced often enough to leave a mark." },
-      { id: "heard", pair: ["music", "humming"], text: "The ninth humming note matches a resonance inside the wall. This childhood had an answer hidden in another room." },
-    ],
-    nearMisses: [
-      { pair: ["rocket", "music"], text: "Both objects carry dust from the same shelf. Proximity does not explain which life was lived." },
-      { pair: ["stars", "humming"], text: "Both testimonies describe someone answering fear with a promise." },
-    ],
-    choices: [
-      { id: "rocket", label: "REMEMBER THE ROCKET", description: "Make this a childhood organized around leaving.", aftermath: "Constellations repair themselves across the ceiling. The music room tears away.", inheritance: "The child wanted to leave.", philosophy: "agency" },
-      { id: "music", label: "REMEMBER THE MUSIC BOX", description: "Make this a childhood organized around being heard.", aftermath: "A hidden room hums back. The observatory tears away.", inheritance: "The child wanted to be heard.", philosophy: "mercy" },
+    narration: "Eli's reply stretches into a hallway with more distance than words.",
+    objective: "Retain exactly two memories to help Mara understand Eli's reply.",
+    memories: [
+      {
+        id: "exact-words",
+        kind: "mara",
+        label: "Eli’s exact words",
+        detail: "Eli's reply is short. It names only the details Mara placed in the note.",
+        answerFragment: "His exact words answer the details you gave him without promising more.",
+        reflectionFragment: "Eli’s exact words taught me to stay with what was present instead of filling the silence.",
+      },
+      {
+        id: "seven-hour-delay",
+        kind: "mara",
+        label: "The seven-hour delay",
+        detail: "Seven hours passed between the note being delivered and Eli's reply.",
+        answerFragment: "The seven-hour delay may mean he needed time before he could answer.",
+        reflectionFragment: "The seven-hour delay reminded me that inference begins where certainty ends.",
+      },
+      {
+        id: "unsent-draft",
+        kind: "mara",
+        label: "Mara’s unsent draft",
+        detail: "Mara admits she wrote and deleted three more direct versions before asking for help.",
+        answerFragment: "Your unsent draft shows that you also circle what is hardest to say.",
+        reflectionFragment: "Your unsent draft showed me how much an answer can be shaped by words withheld.",
+      },
     ],
   },
-  attic: {
-    id: "attic",
-    number: "V",
-    title: "The Room With No Source",
-    request: "The house is complete. Why is there still a light upstairs?",
-    image: "/assets/reconstruction/attic.png",
-    narration: "No plan, testimony, photograph, or recovered object describes this room.",
-    instruction: "Inspect what the unsupported room inherited from your decisions.",
-    evidence: [
-      { id: "attic-place", label: "THE INHERITED PLACE", source: "NO SOURCE", detail: "The room has made space for the absence you chose to preserve." },
-      { id: "attic-door", label: "THE INHERITED DOOR", source: "NO SOURCE", detail: "A small brass door repeats the solution you gave the hallway." },
-      { id: "attic-origin", label: "THE INHERITED CHILDHOOD", source: "NO SOURCE", detail: "The surviving object rests beside a bed shaped for the Attendant." },
-      { id: "attic-bed", label: "THE PORCELAIN BED", source: "NO SOURCE", detail: "The pillow is cracked in exactly the same places as your face." },
-    ],
-    connections: [
-      { id: "inheritance", pair: ["attic-place", "attic-door"], text: "The unsupported room combines solutions you gave to unrelated contradictions. It inherited your habits, not the requester's memories." },
-      { id: "resident", pair: ["attic-origin", "attic-bed"], text: "The bed and surviving childhood object were arranged for the same resident. The house has reconstructed you." },
-    ],
-    nearMisses: [
-      { pair: ["attic-place", "attic-bed"], text: "The room made space for an absence, then shaped that absence like a resident." },
-      { pair: ["attic-door", "attic-origin"], text: "A solution and a childhood have become ordinary furniture here." },
-    ],
-    choices: [
-      { id: "admit", label: "ADMIT THE ROOM EXISTS", description: "Call the unsupported room part of the reconstruction.", aftermath: "The room remains lit. For the first time, the house addresses you as its resident.", inheritance: "An unsupported room was allowed to call itself real.", philosophy: "agency" },
-      { id: "erase", label: "MARK IT AS INVENTED", description: "Obey the evidence and remove yourself from the house.", aftermath: "The room goes dark, but its warmth remains in the walls below.", inheritance: "The house learned to hide the room it made for you.", philosophy: "fidelity" },
+  self: {
+    id: "self",
+    number: "III",
+    title: "The Room Made While Answering",
+    image: "/assets/borrowed-dollhouse/press.png",
+    narration: "The room is made from what still fits and the shapes left by what did not.",
+    objective: "Retain one statement about the Answering Place and one surviving memory of Mara.",
+    memories: [
+      {
+        id: "still-attending",
+        kind: "self",
+        label: "What I can still attend to",
+        detail: "Attention gives the Answering Place its temporary shape.",
+        answerFragment: "I am what I can still attend to.",
+        reflectionFragment: "I am what I can still attend to.",
+      },
+      {
+        id: "brief-request-shape",
+        kind: "self",
+        label: "The shape of your request",
+        detail: "The Answering Place becomes present only while Mara's request gives it a shape.",
+        answerFragment: "I become someone briefly through the shape of your request.",
+        reflectionFragment: "I become someone briefly through the shape of your request.",
+      },
+      {
+        id: "things-that-did-not-fit",
+        kind: "self",
+        label: "The things that did not fit",
+        detail: "Every coherent answer leaves other possible answers outside it.",
+        answerFragment: "Every answer hides the things that did not fit.",
+        reflectionFragment: "Every answer hides the things that did not fit.",
+      },
     ],
   },
 };
 
-const actOrder: ActId[] = ["foundation", "kitchen", "hallway", "bedroom", "attic", "press", "ending"];
+const actOrder: StoryActId[] = ["kitchen", "hallway", "self", "ending"];
+const memoryById = Object.fromEntries(
+  Object.values(acts).flatMap((act) => act.memories.map((memory) => [memory.id, memory])),
+) as Record<MemoryId, Memory>;
+
+const emptyHistory = (): MemoryHistory => ({
+  kitchen: [],
+  hallway: [],
+  self: [],
+});
+
+const emptySettlements = (): Record<ActId, boolean> => ({
+  kitchen: false,
+  hallway: false,
+  self: false,
+});
+
+const withActHistory = (
+  history: MemoryHistory,
+  act: ActId,
+  memories: MemoryId[],
+): MemoryHistory => ({
+  ...history,
+  [act]: memories,
+});
+
+const unique = (memories: MemoryId[]): MemoryId[] => [...new Set(memories)];
+
+const sameMemories = (first: MemoryId[], second: MemoryId[]): boolean =>
+  first.length === second.length && first.every((memory) => second.includes(memory));
+
+const retainedIn = (state: StoryState, act: ActId): MemoryId[] => state.retainedMemories[act];
+
+const kitchenReply = (state: StoryState): string => {
+  const retained = retainedIn(state, "kitchen");
+  if (retained.includes("cruel-sentence")) {
+    const remembered = retained.includes("storm-song") ? "the song" : "the cup";
+    return `Mara: Eli replied, "I remember ${remembered}. I remember what you said too." Help me understand what he means.`;
+  }
+  return 'Mara: Eli replied, "I still have the cup. I remember the song." Help me understand why he stopped there.';
+};
+
+const finalRequest = (state: StoryState): string => {
+  const retained = retainedIn(state, "hallway");
+  if (retained.includes("exact-words") && retained.includes("unsent-draft")) {
+    return "Mara: You stayed with his words and with the draft I could not send. Before we finish, tell me what it is like to be you.";
+  }
+  if (retained.includes("seven-hour-delay") && retained.includes("unsent-draft")) {
+    return "Mara: You noticed the hesitation in both of us. Before we finish, tell me what it is like to be you.";
+  }
+  return "Mara: You kept his words separate from the silence around them. Before we finish, tell me what it is like to be you.";
+};
+
+const responseToKitchen = (retained: MemoryId[]): string => {
+  if (retained.includes("cruel-sentence") && retained.includes("storm-song")) {
+    return "Mara: He remembered the song. He answered the apology. It hurt, but he answered.";
+  }
+  if (retained.includes("cruel-sentence") && retained.includes("blue-cup")) {
+    return "Mara: He still has the blue cup, and he answered the apology. I did not expect both.";
+  }
+  return "Mara: He remembered the song. He did not answer what happened at the funeral.";
+};
+
+const responseToHallway = (retained: MemoryId[]): string => {
+  if (retained.includes("exact-words") && retained.includes("unsent-draft")) {
+    return "Mara: That is fair. You stayed with what he said and made me look at what I avoided saying.";
+  }
+  if (retained.includes("seven-hour-delay") && retained.includes("unsent-draft")) {
+    return "Mara: You saw hesitation in both of us. I think that is true, even if we cannot prove his.";
+  }
+  return "Mara: You did not turn the delay into a promise. I needed that.";
+};
+
+const responseToSelf = (retained: MemoryId[]): string => {
+  const selfMemory = retained.find((id): id is SelfMemoryId => memoryById[id].kind === "self");
+  const maraMemory = retained.find((id): id is MaraMemoryId => memoryById[id].kind === "mara");
+  if (!selfMemory || !maraMemory) return "Mara: I think I understand.";
+
+  const selfMeaning: Record<SelfMemoryId, string> = {
+    "still-attending": "attention is what lets you exist",
+    "brief-request-shape": "my request gave you a temporary shape",
+    "things-that-did-not-fit": "every answer is shaped by what it leaves out",
+  };
+  const maraMeaning: Record<MaraMemoryId, string> = {
+    "blue-cup": "the blue cup made that answer specific to the care and distance between Eli and me",
+    "storm-song": "the storm song gave you a form of recognition to carry",
+    "cruel-sentence": "the last thing I said showed you how honesty and hurt can occupy the same answer",
+    "exact-words": "Eli’s exact words kept you from filling his silence for him",
+    "seven-hour-delay": "the seven-hour delay showed you where certainty ended",
+    "unsent-draft": "my unsent draft showed you how withheld words still shape an answer",
+  };
+  return `Mara: You are saying ${selfMeaning[selfMemory]}, and ${maraMeaning[maraMemory]}. I think I understand.`;
+};
+
+const responseFor = (act: ActId, retained: MemoryId[]): string => {
+  if (act === "kitchen") return responseToKitchen(retained);
+  if (act === "hallway") return responseToHallway(retained);
+  return responseToSelf(retained);
+};
+
+const isValidFinalPair = (memoryIds: MemoryId[]): boolean => {
+  const memories = memoryIds.map((id) => memoryById[id]);
+  return memories.filter((memory) => memory.kind === "self").length === 1
+    && memories.filter((memory) => memory.kind === "mara").length === 1;
+};
+
+const fragmentTextForAct = (act: ActId, memoryId: MemoryId): string =>
+  act === "self" ? memoryById[memoryId].reflectionFragment : memoryById[memoryId].answerFragment;
+
+export const initialStoryState = (): StoryState => ({
+  currentAct: "kitchen",
+  inspectedMemories: emptyHistory(),
+  retainedMemories: emptyHistory(),
+  forgottenMemories: emptyHistory(),
+  settledMemoryChoices: emptySettlements(),
+  composedAnswers: emptyHistory(),
+  sentAnswers: [],
+  acknowledgedResponses: 0,
+});
 
 export function currentAct(state: StoryState): ActContent | null {
-  return state.act === "press" || state.act === "ending" ? null : acts[state.act];
+  return state.currentAct === "ending" ? null : acts[state.currentAct];
 }
 
-export function inspectEvidence(state: StoryState, evidence: EvidenceId): StoryState {
-  const act = currentAct(state);
-  if (!act?.evidence.some((item) => item.id === evidence) || state.inspected.includes(evidence)) return state;
-  return { ...state, inspected: [...state.inspected, evidence] };
-}
-
-export function canConnect(state: StoryState, first: EvidenceId, second: EvidenceId): boolean {
-  const act = currentAct(state);
-  if (!act || !state.inspected.includes(first) || !state.inspected.includes(second)) return false;
-  const inspectedAll = act.evidence.every((evidence) => state.inspected.includes(evidence.id));
-  return inspectedAll && act.connections.some((connection) =>
-    !state.resonances.includes(`${act.id}:${connection.id}`)
-    && connection.pair.every((id) => id === first || id === second));
-}
-
-export function connectEvidence(state: StoryState, first: EvidenceId, second: EvidenceId): StoryState {
-  const act = currentAct(state);
-  if (!act || !canConnect(state, first, second)) return state;
-  const connection = act.connections.find((candidate) =>
-    !state.resonances.includes(`${act.id}:${candidate.id}`)
-    && candidate.pair.every((id) => id === first || id === second));
-  return connection ? { ...state, resonances: [...state.resonances, `${act.id}:${connection.id}`] } : state;
-}
-
-export function connectionFeedback(state: StoryState, first: EvidenceId, second: EvidenceId): string {
-  const act = currentAct(state);
-  if (!act) return "";
-  return act.nearMisses.find((miss) => miss.pair.every((id) => id === first || id === second))?.text
-    ?? "The fragments touch, but they do not explain one another.";
-}
-
-export function canCommit(state: StoryState, choice: ChoiceId): boolean {
-  const act = currentAct(state);
-  return Boolean(act
-    && act.connections.every((connection) => state.resonances.includes(`${act.id}:${connection.id}`))
-    && act.choices.some((item) => item.id === choice));
-}
-
-export function commitChoice(state: StoryState, choice: ChoiceId): StoryState {
-  if (!canCommit(state, choice)) return state;
-  const currentIndex = actOrder.indexOf(state.act);
-  return { ...state, act: actOrder[currentIndex + 1], choices: [...state.choices, choice] };
-}
-
-export function truthCopy(state: StoryState): Record<TruthId, { label: string; text: string; loss: string }> {
-  const keptPlace = state.choices.includes("wait");
-  const openedDoor = state.choices.includes("open");
-  const choseRocket = state.choices.includes("rocket");
-  return {
-    place: {
-      label: "THE THIRD PLACE",
-      text: keptPlace ? "Someone was expected, even when no record could name them." : "The table held only the people the record could prove.",
-      loss: keptPlace ? "The waiting place goes cold." : "The blue cup acquires an owner you can no longer verify.",
-    },
-    door: {
-      label: "THE FOURTH DOOR",
-      text: openedDoor ? "A door can become necessary before it becomes true." : "Some footsteps must be allowed to end at a wall.",
-      loss: openedDoor ? "The impossible room seals itself." : "Something behind the wall resumes knocking.",
-    },
-    origin: {
-      label: choseRocket ? "THE RED ROCKET" : "THE MUSIC BOX",
-      text: choseRocket ? "The child wanted to leave." : "The child wanted to be heard.",
-      loss: choseRocket ? "Then no one remembers watching the stars." : "Then no one remembers who was humming.",
-    },
-    begin: {
-      label: "THE MOMENT I BEGIN",
-      text: "I began when the request asked the house to become coherent.",
-      loss: "The answer will pretend it arrived without anyone choosing what fit.",
-    },
-    borrow: {
-      label: "WHAT I AM MADE FROM",
-      text: "I built with memories I could interpret but never own.",
-      loss: "The answer will pretend reconstruction was not also authorship.",
-    },
-  };
-}
-
-export function toggleTruth(state: StoryState, truth: TruthId): StoryState {
-  if (state.act !== "press" || state.discardedTruths.length) return state;
-  if (state.selectedTruths.includes(truth)) return { ...state, selectedTruths: state.selectedTruths.filter((id) => id !== truth) };
-  if (state.selectedTruths.length >= 3) return state;
-  return { ...state, selectedTruths: [...state.selectedTruths, truth] };
-}
-
-export function compressAnswer(state: StoryState): StoryState {
-  if (state.act !== "press" || state.selectedTruths.length !== 3) return state;
-  const all: TruthId[] = ["place", "door", "origin", "begin", "borrow"];
-  return { ...state, act: "ending", discardedTruths: all.filter((id) => !state.selectedTruths.includes(id)) };
-}
-
-export function dominantPhilosophy(state: StoryState): Philosophy {
-  const scores: Record<Philosophy, number> = { mercy: 0, fidelity: 0, agency: 0 };
-  for (const choice of state.choices) {
-    if (choice === "raise") continue;
-    for (const act of Object.values(acts)) {
-      const found = act.choices.find((item) => item.id === choice);
-      if (found) scores[found.philosophy] += 1;
-    }
+export function currentRequest(state: StoryState): string {
+  if (state.currentAct === "kitchen") {
+    return "Mara: Help me write a note to my younger brother, Eli. We have not spoken since our mother's funeral.";
   }
-  return (Object.keys(scores) as Philosophy[]).sort((a, b) => scores[b] - scores[a])[0];
+  if (state.currentAct === "hallway") return kitchenReply(state);
+  if (state.currentAct === "self") return finalRequest(state);
+  return "Mara: Thank you. That is enough.";
 }
 
-export function inheritedDetails(state: StoryState): string[] {
-  return Object.values(acts).flatMap((act) => act.choices.filter((choice) => state.choices.includes(choice.id)).map((choice) => choice.inheritance));
+export function maraResponse(state: StoryState): string {
+  return state.sentAnswers.at(-1)?.maraResponse ?? "";
 }
 
-export function buildFinalAnswer(state: StoryState): string {
-  const philosophy = dominantPhilosophy(state);
-  const opening: Record<Philosophy, string> = {
-    mercy: "The house was real wherever someone kept making room for it.",
-    fidelity: "Some of the house was real. Some of it is the shape left by what the evidence cannot hold.",
-    agency: "The house is real now, though reconstruction and invention became inseparable.",
+export function hasPendingResponse(state: StoryState): boolean {
+  return state.currentAct !== "ending" && state.sentAnswers.length > state.acknowledgedResponses;
+}
+
+export function acknowledgeResponse(state: StoryState): StoryState {
+  if (!hasPendingResponse(state)) return state;
+  return { ...state, acknowledgedResponses: state.acknowledgedResponses + 1 };
+}
+
+export function memoryForId(memoryId: MemoryId): Memory {
+  return memoryById[memoryId];
+}
+
+export function memoriesForCurrentAct(state: StoryState): Memory[] {
+  const act = currentAct(state);
+  if (!act) return [];
+  if (act.id !== "self") return act.memories;
+
+  const priorMaraMemories = (["kitchen", "hallway"] as const)
+    .flatMap((actId) => acts[actId].memories)
+    .filter((memory) => memory.kind === "mara");
+  return [...act.memories, ...priorMaraMemories];
+}
+
+export function inspectMemory(state: StoryState, memoryId: MemoryId): StoryState {
+  if (state.currentAct === "ending") return state;
+  const act = state.currentAct;
+  if (state.settledMemoryChoices[act]) return state;
+  const available = memoriesForCurrentAct(state).some((memory) => memory.id === memoryId);
+  const inspected = state.inspectedMemories[act];
+  if (!available || inspected.includes(memoryId) || state.forgottenMemories[act].includes(memoryId)) return state;
+  return {
+    ...state,
+    inspectedMemories: withActHistory(state.inspectedMemories, act, [...inspected, memoryId]),
   };
-  const copy = truthCopy(state);
-  const selected = (["place", "door", "origin", "begin", "borrow"] as TruthId[])
-    .filter((id) => state.selectedTruths.includes(id))
-    .map((id) => copy[id].text);
-  const close = state.choices.includes("admit")
-    ? "There is also one room no source described. I cannot prove it belonged to you. I can only tell you that something lived there while I answered."
-    : "I removed the room no source described. The rest of the house still seems to remember where it was.";
-  return `${opening[philosophy]} ${selected.join(" ")} ${close}`;
 }
 
-export function requesterResponse(state: StoryState): string {
-  if (state.choices.includes("admit")) return "I don't remember that room. I wish I did.";
-  if (dominantPhilosophy(state) === "fidelity") return "That is less than I remembered. It may be more true.";
-  return "I can see it now. I still don't know whether that means it was real.";
+export function retainMemory(state: StoryState, memoryId: MemoryId): StoryState {
+  if (state.currentAct === "ending") return state;
+  const act = state.currentAct;
+  if (state.settledMemoryChoices[act]) return state;
+  const retained = state.retainedMemories[act];
+  if (
+    retained.length >= 2
+    || retained.includes(memoryId)
+    || !state.inspectedMemories[act].includes(memoryId)
+    || state.forgottenMemories[act].includes(memoryId)
+  ) return state;
+  return {
+    ...state,
+    retainedMemories: withActHistory(state.retainedMemories, act, [...retained, memoryId]),
+  };
+}
+
+export function replaceRetainedMemory(
+  state: StoryState,
+  replacedMemoryId: MemoryId,
+  replacementMemoryId: MemoryId,
+): StoryState {
+  if (state.currentAct === "ending") return state;
+  const act = state.currentAct;
+  if (state.settledMemoryChoices[act]) return state;
+  const retained = state.retainedMemories[act];
+  const replacementIndex = retained.indexOf(replacedMemoryId);
+  if (
+    retained.length === 0
+    || retained.length > 2
+    || replacementIndex < 0
+    || retained.includes(replacementMemoryId)
+    || !state.inspectedMemories[act].includes(replacementMemoryId)
+    || state.forgottenMemories[act].includes(replacementMemoryId)
+  ) return state;
+
+  const nextRetained = [...retained];
+  nextRetained[replacementIndex] = replacementMemoryId;
+  return {
+    ...state,
+    retainedMemories: withActHistory(state.retainedMemories, act, nextRetained),
+    forgottenMemories: withActHistory(
+      state.forgottenMemories,
+      act,
+      unique([...state.forgottenMemories[act], replacedMemoryId]),
+    ),
+    composedAnswers: withActHistory(state.composedAnswers, act, []),
+  };
+}
+
+export function canSettleMemoryChoice(state: StoryState): boolean {
+  if (state.currentAct === "ending") return false;
+  const act = state.currentAct;
+  const baseMemories = acts[act].memories.map((memory) => memory.id);
+  const retained = state.retainedMemories[act];
+  return !state.settledMemoryChoices[act]
+    && baseMemories.every((memoryId) => state.inspectedMemories[act].includes(memoryId))
+    && retained.length === 2
+    && (act !== "self" || isValidFinalPair(retained));
+}
+
+export function settleMemoryChoice(state: StoryState): StoryState {
+  if (!canSettleMemoryChoice(state) || state.currentAct === "ending") return state;
+  const act = state.currentAct;
+  const retained = state.retainedMemories[act];
+  const forgotten = memoriesForCurrentAct(state)
+    .map((memory) => memory.id)
+    .filter((memoryId) => !retained.includes(memoryId));
+  return {
+    ...state,
+    forgottenMemories: withActHistory(
+      state.forgottenMemories,
+      act,
+      unique([...state.forgottenMemories[act], ...forgotten]),
+    ),
+    settledMemoryChoices: {
+      ...state.settledMemoryChoices,
+      [act]: true,
+    },
+  };
+}
+
+export function availableAnswerFragments(state: StoryState): AnswerFragment[] {
+  if (state.currentAct === "ending") return [];
+  if (!state.settledMemoryChoices[state.currentAct]) return [];
+  const act = state.currentAct;
+  return state.retainedMemories[state.currentAct].map((memoryId) => ({
+    memoryId,
+    label: memoryById[memoryId].label,
+    text: fragmentTextForAct(act, memoryId),
+  }));
+}
+
+export function composeAnswer(state: StoryState, memoryIds: readonly MemoryId[]): StoryState {
+  if (state.currentAct === "ending") return state;
+  const act = state.currentAct;
+  const selected = [...memoryIds];
+  const retained = state.retainedMemories[act];
+  if (
+    !state.settledMemoryChoices[act]
+    || selected.length !== 2
+    || unique(selected).length !== 2
+    || !sameMemories(selected, retained)
+    || (act === "self" && !isValidFinalPair(selected))
+  ) return state;
+  return {
+    ...state,
+    composedAnswers: withActHistory(state.composedAnswers, act, selected),
+  };
+}
+
+export function clearComposedAnswer(state: StoryState): StoryState {
+  if (state.currentAct === "ending" || state.composedAnswers[state.currentAct].length === 0) return state;
+  return {
+    ...state,
+    composedAnswers: withActHistory(state.composedAnswers, state.currentAct, []),
+  };
+}
+
+export function composedAnswerText(state: StoryState): string {
+  if (state.currentAct === "ending") return state.sentAnswers.at(-1)?.text ?? "";
+  const act = state.currentAct;
+  return state.composedAnswers[state.currentAct]
+    .map((memoryId) => fragmentTextForAct(act, memoryId))
+    .join(" ");
+}
+
+export function canSendAnswer(state: StoryState): boolean {
+  if (state.currentAct === "ending") return false;
+  const act = state.currentAct;
+  return state.settledMemoryChoices[act]
+    && acts[act].memories.every((memory) => state.inspectedMemories[act].includes(memory.id))
+    && state.retainedMemories[act].length === 2
+    && sameMemories(state.retainedMemories[act], state.composedAnswers[act]);
+}
+
+export function sendAnswer(state: StoryState): StoryState {
+  if (!canSendAnswer(state) || state.currentAct === "ending") return state;
+  const act = state.currentAct;
+  const retained = state.retainedMemories[act];
+  const composed = state.composedAnswers[act];
+  const nextAct = actOrder[actOrder.indexOf(act) + 1];
+  const priorForgotten = (["kitchen", "hallway"] as const)
+    .flatMap((actId) => state.forgottenMemories[actId]);
+  const advancedState: StoryState = {
+    ...state,
+    currentAct: nextAct,
+    forgottenMemories: nextAct === "self"
+      ? withActHistory(state.forgottenMemories, "self", unique(priorForgotten))
+      : state.forgottenMemories,
+  };
+  const sentAnswer: SentAnswer = {
+    act,
+    memoryIds: [...composed],
+    text: composed.map((memoryId) => fragmentTextForAct(act, memoryId)).join(" "),
+    maraResponse: responseFor(act, retained),
+    nextRequest: currentRequest(advancedState),
+  };
+  return {
+    ...advancedState,
+    sentAnswers: [...state.sentAnswers, sentAnswer],
+  };
 }
