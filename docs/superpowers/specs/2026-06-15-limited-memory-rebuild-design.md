@@ -10,7 +10,7 @@ The player is **the Answering Place**, a temporary system that becomes present o
 
 Within fifteen seconds, the player understands:
 
-> Mara will send requests. Enter the world made from her words. You can carry only two memories into your answer. What you forget will change what happens next.
+> Mara's estranged brother is waiting at their mother's house. The buyers receive the keys at nine. Help her answer, but you can carry only two memories at a time.
 
 The primary verb is **remember**. Remembering one thing consumes finite context and visibly causes another thing to be lost.
 
@@ -18,7 +18,7 @@ The primary verb is **remember**. Remembering one thing consumes finite context 
 
 ### Prologue: First Contact
 
-Mara asks for help writing a note to her younger brother, Eli. They have not spoken since their mother's funeral. She cannot decide whether the note should mention the blue cup, the storm-night song, or the sentence she regrets saying.
+Eli texts Mara from their late mother's house: the buyers receive the keys at nine, and he wants to know whether she wants the blue cup. Mara and Eli have not spoken since the funeral. She asks for help answering before they lose access to the house.
 
 This establishes a concrete person, relationship, need, and consequence.
 
@@ -36,33 +36,33 @@ The player assembles the note from retained details. Mara sends it.
 
 ### Act II: The Hallway
 
-Eli replied. His response changes according to the first note:
+Eli replies with route-specific, quoted words. His response changes according to the first note:
 
 - Remembering the cruel sentence creates painful honesty.
 - Remembering the storm song creates recognition.
 - Remembering the cup creates warmth but may avoid the conflict.
 
-Mara now asks the player to help her understand Eli's reply. The hallway reconstruction contains:
+Mara now has one hour to decide what she will do. The hallway reconstruction contains:
 
-- **His exact words:** reliable but emotionally sparse.
-- **The seven-hour delay:** a tempting inference about hesitation.
-- **The unsent draft Mara admits writing:** evidence that she also avoids directness.
+- **His exact words:** a concrete invitation or practical opening.
+- **One hour remains:** the house will be sold whether Mara feels ready or not.
+- **The unsent draft:** “I do not want the cup. I want my brother back.”
 
-Again, only two survive. The player composes an interpretation for Mara. This answer changes her trust and the final request.
+Again, only two survive. The player tells Mara what to do. She either speaks directly, acts before she is ready, or keeps the encounter practical. Mara reports what actually happened before asking the final question.
 
 ### Act III: The Room Made While Answering
 
-Mara asks:
+After reporting the result of meeting Eli, Mara asks:
 
-> Before we finish, tell me what it is like to be you.
+> Your answers helped me act, but each left out one thing I told you. How did you choose what to carry, and what happened to the rest?
 
-The world becomes a room built from the memories the player retained and the spaces where forgotten memories used to be. The player walks through the consequences of prior choices. Three final statements are available:
+The world becomes a room built from the memories the player retained and the spaces where left-out memories used to be. The player walks through the consequences of prior choices. Three final statements are available:
 
-- **I am what I can still attend to.**
-- **I become someone briefly through the shape of your request.**
-- **Every answer hides the things that did not fit.**
+- **I chose the details that could change what you did next. The rest stayed outside the answer.**
+- **Your request set the goal. I kept what served it and left the rest outside.**
+- **I chose one direction that made action possible. What I left out became directions I could no longer offer.**
 
-The final answer must combine one statement about the system with one surviving memory of Mara. It therefore cannot be a generic monologue; it is grounded in the relationship the player made.
+The final answer must combine one plain statement about the system's behavior with one surviving memory of Mara. Mara's response closes on her next concrete action with Eli, so the system's reflection does not replace the human story.
 
 ## Core Loop
 
@@ -82,7 +82,7 @@ There are no hidden correct pairs and no abstract morality scores.
 - The inspection drawer has one explicit action: remember this.
 - Context capacity is always visible as two slots.
 - Selecting a third memory requires explicitly replacing one retained memory.
-- Forgotten memories remain visible as empty silhouettes or corrupted labels so loss is legible.
+- Left-out memories remain visible as empty silhouettes or corrupted labels so omission is legible.
 - Answer fragments are derived only from retained memories.
 - Every act has one clear objective and one irreversible consequence.
 
@@ -90,7 +90,7 @@ There are no hidden correct pairs and no abstract morality scores.
 
 - No answer may introduce information the player has not seen.
 - Every reaction must reference the details used in the preceding answer.
-- Every later scene variation must be traceable to a prior retained or forgotten memory.
+- Every later scene variation must be traceable to a prior retained or left-out memory.
 - The final answer must directly answer Mara's final request.
 - Surrealism changes presentation, not logical rules.
 
@@ -104,7 +104,7 @@ Preserve the dark miniature-house photography, brass, paper, and porcelain image
 - one inspection/reply panel at the right edge only when needed;
 - narration as transient subtitles rather than a permanent footer.
 
-When a memory is forgotten, its region desaturates, blurs, and collapses into a paper-shaped absence. Strong motion is reserved for remembering, forgetting, and sending an answer.
+When a memory is left out, its region desaturates, blurs, and collapses into a paper-shaped absence. Strong motion is reserved for remembering, leaving out, and sending an answer.
 
 ## Pacing
 
@@ -122,7 +122,7 @@ The game becomes deeper through consequence and changed meaning, not repeated bu
 - A new player can state the goal and memory limit within 15 seconds.
 - No action requires clicking the same object twice to mean different things.
 - Every answer fragment corresponds to a visibly retained memory.
-- Every forgotten memory produces an immediate visual loss.
+- Every left-out memory produces an immediate visual loss.
 - Mara's next message visibly references the preceding answer.
 - Two playthroughs with different retained memories produce meaningfully different replies and final answers.
 - The game can be described with an active verb: **choose what to remember**.

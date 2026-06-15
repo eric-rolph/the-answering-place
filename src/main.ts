@@ -39,6 +39,7 @@ const sceneImage = byId<HTMLImageElement>("scene-image");
 const content = byId("scene-content");
 const contextBar = byId("context-bar");
 const requestText = byId("request-text");
+const requestRibbon = requestText.closest<HTMLElement>(".request-ribbon");
 const narration = byId("narration");
 const speaker = byId("speaker");
 const narrator = narration.closest<HTMLElement>(".narrator");
@@ -118,6 +119,7 @@ const statusFor = (memoryId: MemoryId): "forgotten" | "retained" | "inspected" |
 
 const renderContext = (): void => {
   const retained = retainedNow();
+  contextBar.classList.remove("hidden");
   contextBar.innerHTML = `
     <h2>CONTEXT · ${retained.length} / 2</h2>
     ${[0, 1].map((index) => retained[index]
@@ -129,7 +131,7 @@ const renderContext = (): void => {
 const memoryObjectMarkup = (memory: Memory): string => {
   const status = statusFor(memory.id);
   const statusText = status === "forgotten"
-    ? `${displayLabel(memory)} WAS FORGOTTEN`
+    ? `${displayLabel(memory)} WAS LEFT OUT`
     : status === "retained"
       ? "REMEMBERED"
       : status === "inspected"
@@ -151,8 +153,12 @@ const inspectionMarkup = (memory: Memory): string => {
       <p class="eyebrow">${memory.kind === "self" ? "A STATEMENT ABOUT ME" : "A MEMORY OF MARA"}</p>
       <h3>${escapeHtml(memory.label)}</h3>
       <p>${escapeHtml(memory.detail)}</p>
+      ${memory.kind === "mara" ? `
+        <p class="answer-preview-label">IF CARRIED INTO THE ANSWER</p>
+        <p class="answer-preview">${escapeHtml(memory.answerFragment)}</p>
+      ` : ""}
       <button id="remember-memory" class="memory-action" ${disabled ? "disabled" : ""}>
-        ${status === "retained" ? "Remembered" : status === "forgotten" ? "Forgotten" : "Remember this"}
+        ${status === "retained" ? "Remembered" : status === "forgotten" ? "Left out" : "Remember this"}
       </button>
     </aside>
   `;
@@ -164,7 +170,7 @@ const canOpenComposer = (): boolean => {
 };
 
 const composeLabel = (): string =>
-  state.currentAct === "kitchen" ? "Compose Mara's note" : "Compose your reading";
+  state.currentAct === "kitchen" ? "Compose Mara's note" : "Compose your advice";
 
 function renderAct(): void {
   const act = currentAct(state);
@@ -185,6 +191,7 @@ function renderAct(): void {
     return;
   }
 
+  requestRibbon?.classList.remove("hidden");
   sceneImage.src = act.image;
   sceneImage.alt = act.title;
   requestText.textContent = currentRequest(state);
@@ -228,11 +235,11 @@ const replacementModalMarkup = (replacement: MemoryId): string => `
     <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="context-full-heading">
       <p class="eyebrow">LIMITED CONTEXT</p>
       <h2 id="context-full-heading">Context is full.</h2>
-      <p>Remembering ${escapeHtml(displayLabel(memoryForId(replacement)))} requires forgetting one retained memory.</p>
+      <p>Carrying ${escapeHtml(displayLabel(memoryForId(replacement)))} requires leaving one retained memory out.</p>
       <div class="loss-options">
         ${replacementOptions(replacement).map((memoryId) => `
           <button class="memory-action" data-forget="${memoryId}">
-            Forget ${escapeHtml(displayLabel(memoryForId(memoryId)))}
+            Leave out ${escapeHtml(displayLabel(memoryForId(memoryId)))}
           </button>
         `).join("")}
       </div>
@@ -281,13 +288,32 @@ const settleAndOpenComposer = (): void => {
   save();
   makePaperStorm();
   setNarration("What did not fit is now outside the answer.");
-  renderAct();
-  window.setTimeout(renderComposer, 1150);
+  renderLossBeat();
 };
 
 const forgottenLinesMarkup = (): string => forgottenNow().map((memoryId) =>
-  `<p class="forgotten-line">${escapeHtml(displayLabel(memoryForId(memoryId)))} WAS FORGOTTEN</p>`,
+  `<p class="forgotten-line">${escapeHtml(displayLabel(memoryForId(memoryId)))} WAS LEFT OUT</p>`,
 ).join("");
+
+function renderLossBeat(): void {
+  const act = currentAct(state);
+  if (!act || act.id === "self") return;
+  sceneImage.src = act.image;
+  requestText.textContent = currentRequest(state);
+  renderContext();
+  content.innerHTML = `
+    <section class="memory-grid" aria-label="Settled memories">
+      ${memoriesForCurrentAct(state).map(memoryObjectMarkup).join("")}
+    </section>
+    <section class="response-card loss-beat">
+      <p class="eyebrow">CONTEXT SETTLED</p>
+      <h2>One part of Mara's story is now outside the answer.</h2>
+      ${forgottenLinesMarkup()}
+      <button id="compose-remains" class="brass-button">Compose from what remains</button>
+    </section>
+  `;
+  content.querySelector<HTMLButtonElement>("#compose-remains")?.addEventListener("click", renderComposer);
+}
 
 function renderComposer(): void {
   const act = currentAct(state);
@@ -351,9 +377,11 @@ function renderResponse(): void {
   if (!answer || !act) return;
   sceneImage.src = act.image;
   sceneImage.alt = act.title;
-  requestText.textContent = currentRequest(state);
+  requestRibbon?.classList.add("hidden");
   renderContext();
-  const nextLabel = state.currentAct === "hallway" ? "Enter the reply" : "Answer her final request";
+  const nextLabel = state.currentAct === "hallway"
+    ? "Continue to Mara's next request"
+    : "Continue to Mara's final question";
   content.innerHTML = `
     <div class="modal-backdrop">
       <section class="response-card">
@@ -424,7 +452,7 @@ function renderFinalSelection(): void {
       <div class="final-options">
         ${selfMemories.map(finalChoiceMarkup).join("")}
       </div>
-      <p class="final-group-label">MEMORIES FROM MARA · FORGOTTEN MEMORIES CANNOT BE CHOSEN</p>
+      <p class="final-group-label">MEMORIES FROM MARA · LEFT-OUT MEMORIES CANNOT BE CHOSEN</p>
       <div class="final-options memories">
         ${maraMemories.map(finalChoiceMarkup).join("")}
       </div>
@@ -472,7 +500,9 @@ function renderEnding(): void {
   const answer = state.sentAnswers.at(-1);
   sceneImage.src = "/assets/borrowed-dollhouse/press.png";
   sceneImage.alt = "The Answering Place after the answer";
+  requestRibbon?.classList.remove("hidden");
   requestText.textContent = currentRequest(state);
+  contextBar.classList.add("hidden");
   contextBar.innerHTML = "";
   content.innerHTML = `
     <div class="modal-backdrop">

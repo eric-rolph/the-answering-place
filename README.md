@@ -4,11 +4,11 @@ A narrative game about attention, limited memory, and helping one person across 
 
 [Play The Answering Place](https://the-answering-place.ericrolph.workers.dev)
 
-Mara needs help speaking to her estranged younger brother. Enter the places made from her words, inspect the memories she gives you, and choose what limited context can carry into each answer. What you remember shapes the relationship. What you forget disappears.
+Mara's estranged younger brother is waiting at their late mother's house. The buyers receive the keys at nine. Enter the places made from Mara's words, choose what limited context can carry into each answer, and help her decide what to say and whether to go.
 
 ## Play
 
-Each request contains three memories, but an answer can carry only two. Inspect a memory, choose to retain it, and explicitly decide what must be lost when context fills. Mara and Eli react to the details that survive. A first playthrough takes roughly 8-12 minutes.
+Each request contains three relevant details, but an answer can carry only two. Inspect a memory, choose to retain it, and explicitly decide what must be omitted when context fills. Eli's quoted reply and Mara's next action change according to what survives. A first playthrough takes roughly 8-12 minutes.
 
 ## Development
 

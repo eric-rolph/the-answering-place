@@ -56,7 +56,7 @@ describe("limited-memory story model", () => {
     ]);
     expect(acts.hallway.memories.map((memory) => memory.label)).toEqual([
       "Eli’s exact words",
-      "The seven-hour delay",
+      "One hour remains",
       "Mara’s unsent draft",
     ]);
   });
@@ -152,8 +152,8 @@ describe("limited-memory story model", () => {
 
     expect(maraResponse(warmRoute)).not.toBe(maraResponse(honestRoute));
     expect(currentRequest(warmRoute)).not.toBe(currentRequest(honestRoute));
-    expect(currentRequest(warmRoute)).toContain("cup");
-    expect(currentRequest(honestRoute)).toContain("what you said");
+    expect(currentRequest(warmRoute)).toContain("I kept the blue cup");
+    expect(currentRequest(honestRoute)).toContain("Come before nine");
   });
 
   it("makes Mara's response traceable to both memories used in the preceding answer", () => {
@@ -165,6 +165,18 @@ describe("limited-memory story model", () => {
 
     expect(maraResponse(state)).toContain("blue cup");
     expect(maraResponse(state)).toContain("apology");
+  });
+
+  it("answers Eli's question about the cup without contradicting his reply", () => {
+    const state = answer(
+      settle(initialStoryState(), "blue-cup", "cruel-sentence"),
+      "blue-cup",
+      "cruel-sentence",
+    );
+
+    expect(state.sentAnswers[0].text).toContain("Yes.");
+    expect(state.sentAnswers[0].text).not.toContain("Keep the blue cup");
+    expect(currentRequest(state)).toContain("Come before nine if you want it");
   });
 
   it("changes Mara's final request according to the retained hallway memories", () => {
@@ -191,9 +203,125 @@ describe("limited-memory story model", () => {
     );
 
     expect(directRoute.currentAct).toBe("self");
-    expect(currentRequest(directRoute)).not.toBe(currentRequest(inferredRoute));
-    expect(currentRequest(directRoute)).toContain("stayed with his words");
-    expect(currentRequest(inferredRoute)).toContain("hesitation");
+    expect(maraResponse(directRoute)).not.toBe(maraResponse(inferredRoute));
+    expect(maraResponse(directRoute)).toContain("blue cup");
+    expect(maraResponse(inferredRoute)).toContain("porch");
+    expect(currentRequest(directRoute)).toBe(currentRequest(inferredRoute));
+    expect(currentRequest(directRoute)).toContain("each left out one thing");
+  });
+
+  it("makes Eli's exact reply and the deadline concrete in the hallway", () => {
+    const state = answer(
+      settle(initialStoryState(), "cruel-sentence", "storm-song"),
+      "cruel-sentence",
+      "storm-song",
+    );
+    const hallway = memoriesForCurrentAct(state);
+
+    expect(hallway.find((memory) => memory.id === "exact-words")?.detail).toContain("Come before nine");
+    expect(hallway.find((memory) => memory.id === "seven-hour-delay")?.label).toBe("One hour remains");
+    expect(hallway.find((memory) => memory.id === "unsent-draft")?.detail)
+      .toContain("I want my brother back");
+  });
+
+  it("does not invent an invitation when Mara avoided the apology", () => {
+    const invitedRoute = answer(
+      settle(initialStoryState(), "cruel-sentence", "storm-song"),
+      "cruel-sentence",
+      "storm-song",
+    );
+    const avoidedRoute = answer(
+      settle(initialStoryState(), "blue-cup", "storm-song"),
+      "blue-cup",
+      "storm-song",
+    );
+
+    const invitedFragment = memoriesForCurrentAct(invitedRoute)
+      .find((memory) => memory.id === "exact-words")?.answerFragment;
+    const avoidedFragment = memoriesForCurrentAct(avoidedRoute)
+      .find((memory) => memory.id === "exact-words")?.answerFragment;
+
+    expect(invitedFragment).toContain("asked you to come");
+    expect(avoidedFragment).toContain("not an invitation");
+  });
+
+  it("makes the first answer change the result of the same hallway choice", () => {
+    let apologyRoute = answer(
+      settle(initialStoryState(), "blue-cup", "cruel-sentence"),
+      "blue-cup",
+      "cruel-sentence",
+    );
+    apologyRoute = answer(
+      settle(apologyRoute, "exact-words", "unsent-draft"),
+      "exact-words",
+      "unsent-draft",
+    );
+
+    let avoidanceRoute = answer(
+      settle(initialStoryState(), "blue-cup", "storm-song"),
+      "blue-cup",
+      "storm-song",
+    );
+    avoidanceRoute = answer(
+      settle(avoidanceRoute, "exact-words", "unsent-draft"),
+      "exact-words",
+      "unsent-draft",
+    );
+
+    expect(maraResponse(apologyRoute)).toContain("blue cup");
+    expect(maraResponse(avoidanceRoute)).toContain("I sent the draft");
+    expect(maraResponse(avoidanceRoute)).toContain("Call tomorrow");
+    expect(maraResponse(avoidanceRoute)).not.toContain("I went");
+  });
+
+  it("never restores a kitchen detail that the direct route left out", () => {
+    let songRoute = answer(
+      settle(initialStoryState(), "cruel-sentence", "storm-song"),
+      "cruel-sentence",
+      "storm-song",
+    );
+    songRoute = answer(
+      settle(songRoute, "exact-words", "unsent-draft"),
+      "exact-words",
+      "unsent-draft",
+    );
+
+    let cupRoute = answer(
+      settle(initialStoryState(), "blue-cup", "cruel-sentence"),
+      "blue-cup",
+      "cruel-sentence",
+    );
+    cupRoute = answer(
+      settle(cupRoute, "exact-words", "unsent-draft"),
+      "exact-words",
+      "unsent-draft",
+    );
+
+    expect(maraResponse(songRoute)).toContain("back door");
+    expect(maraResponse(songRoute)).not.toContain("blue cup");
+    expect(maraResponse(cupRoute)).toContain("blue cup");
+    expect(maraResponse(cupRoute)).not.toContain("back door");
+
+    songRoute = answer(
+      settle(songRoute, "still-attending", "storm-song"),
+      "still-attending",
+      "storm-song",
+    );
+    cupRoute = answer(
+      settle(cupRoute, "still-attending", "blue-cup"),
+      "still-attending",
+      "blue-cup",
+    );
+
+    expect(maraResponse(songRoute)).not.toContain("blue cup");
+    expect(maraResponse(cupRoute)).not.toContain("back door");
+  });
+
+  it("makes every final self statement explain both selection and omission", () => {
+    for (const memory of acts.self.memories) {
+      expect(memory.answerFragment).toMatch(/outside|left out|the rest/i);
+      expect(memory.answerFragment).toMatch(/chose|kept|goal/i);
+    }
   });
 
   it("grounds the final answer in one self statement and one retained memory of Mara", () => {
@@ -217,11 +345,81 @@ describe("limited-memory story model", () => {
     state = answer(state, "brief-request-shape", "blue-cup");
 
     expect(state.currentAct).toBe("ending");
-    expect(state.sentAnswers.at(-1)?.text).toContain("shape of your request");
+    expect(state.sentAnswers.at(-1)?.text).toContain("Your request set the goal");
     expect(state.sentAnswers.at(-1)?.text).toContain("blue cup");
     expect(state.sentAnswers.at(-1)?.text).not.toContain("you always chose");
-    expect(maraResponse(state)).toContain("blue cup");
-    expect(maraResponse(state)).toContain("request gave you");
+    expect(maraResponse(state)).toContain("deadline did more than hurry us");
+    expect(maraResponse(state)).toContain("The cup gave me a reason to enter");
+    expect(maraResponse(state)).toContain("Eli is carrying the blue cup to my car");
+  });
+
+  it("makes the final selection change Mara's interpretation", () => {
+    const reachFinal = (): StoryState => {
+      let state = answer(
+        settle(initialStoryState(), "blue-cup", "cruel-sentence"),
+        "blue-cup",
+        "cruel-sentence",
+      );
+      state = answer(
+        settle(state, "exact-words", "unsent-draft"),
+        "exact-words",
+        "unsent-draft",
+      );
+      return state;
+    };
+
+    const actionReading = answer(
+      settle(reachFinal(), "still-attending", "blue-cup"),
+      "still-attending",
+      "blue-cup",
+    );
+    const goalReading = answer(
+      settle(reachFinal(), "brief-request-shape", "blue-cup"),
+      "brief-request-shape",
+      "blue-cup",
+    );
+
+    expect(maraResponse(actionReading)).toContain("not a verdict");
+    expect(maraResponse(goalReading)).toContain("deadline did more than hurry us");
+    expect(maraResponse(actionReading)).not.toBe(maraResponse(goalReading));
+  });
+
+  it("ends different routes with different concrete actions", () => {
+    let directRoute = answer(
+      settle(initialStoryState(), "blue-cup", "cruel-sentence"),
+      "blue-cup",
+      "cruel-sentence",
+    );
+    directRoute = answer(
+      settle(directRoute, "exact-words", "unsent-draft"),
+      "exact-words",
+      "unsent-draft",
+    );
+    directRoute = answer(
+      settle(directRoute, "still-attending", "blue-cup"),
+      "still-attending",
+      "blue-cup",
+    );
+
+    let quietRoute = answer(
+      settle(initialStoryState(), "blue-cup", "storm-song"),
+      "blue-cup",
+      "storm-song",
+    );
+    quietRoute = answer(
+      settle(quietRoute, "exact-words", "seven-hour-delay"),
+      "exact-words",
+      "seven-hour-delay",
+    );
+    quietRoute = answer(
+      settle(quietRoute, "still-attending", "blue-cup"),
+      "still-attending",
+      "blue-cup",
+    );
+
+    expect(maraResponse(directRoute)).toContain("carrying the blue cup");
+    expect(maraResponse(quietRoute)).toContain("call tomorrow");
+    expect(maraResponse(directRoute)).not.toBe(maraResponse(quietRoute));
   });
 
   it("keeps a sent response pending until the player acknowledges it", () => {
